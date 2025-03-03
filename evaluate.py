@@ -72,6 +72,9 @@ def main(model_module):
     The test predictions are written out to TEST_OUTPUT_PATH (with columns AccountID,Fraudster).
     All log output is written to stdout and also saved to logs/<timestamp>.txt.
     """
+    global LOG_BASENAME
+    LOG_BASENAME += f"_{model_module}"
+
     logger = setup_logger()
     logger.info("Starting evaluation...")
 

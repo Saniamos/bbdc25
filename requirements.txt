@@ -6,4 +6,4 @@ matplotlib
 click
 
 scikit-learn
-
+imbalanced-learn

@@ -1,0 +1,34 @@
+2025-03-03 14:43:14,328 - INFO - Starting evaluation...
+2025-03-03 14:43:14,379 - INFO - Imported Model from module models.guess
+2025-03-03 14:43:14,379 - INFO - Loading training data from task/train_set/x_train.csv and task/train_set/y_train.csv
+2025-03-03 14:43:15,385 - INFO - Training data: 1674104 samples, 9 features
+2025-03-03 14:43:15,385 - INFO - Training model...
+2025-03-03 14:43:15,453 - INFO - Model training completed. Took: 0:00:00.067344 min
+2025-03-03 14:43:15,453 - INFO - Loading validation data from task/val_set/x_val.csv and task/val_set/y_val.csv
+2025-03-03 14:43:16,660 - INFO - Validation data: 1792506 samples, 9 features
+2025-03-03 14:43:16,660 - INFO - Predicting on validation set...
+2025-03-03 14:43:16,939 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.87      0.87      0.87   1565633
+           1       0.13      0.13      0.13    226873
+
+    accuracy                           0.78   1792506
+   macro avg       0.50      0.50      0.50   1792506
+weighted avg       0.78      0.78      0.78   1792506
+
+2025-03-03 14:43:17,014 - INFO - Classification Report **Per Account** on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.87      0.84      0.85      9588
+           1       0.13      0.15      0.14      1472
+
+    accuracy                           0.75     11060
+   macro avg       0.50      0.50      0.50     11060
+weighted avg       0.77      0.75      0.76     11060
+
+2025-03-03 14:43:17,014 - INFO - Loading test data from task/test_set/x_test.csv
+2025-03-03 14:43:17,844 - INFO - Predicting on test set...
+2025-03-03 14:43:18,464 - INFO - Test predictions also written to logs/2025.03.03_14:43:14_models.guess_test_transaction.csv
+2025-03-03 14:43:18,535 - INFO - Test account id predictions also written to logs/2025.03.03_14:43:14_models.guess_test.csv
+2025-03-03 14:43:18,535 - INFO - Evaluation complete.

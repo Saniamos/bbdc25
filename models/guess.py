@@ -1,30 +1,27 @@
 import pickle
 from sklearn.calibration import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.dummy import DummyClassifier
 
 class Model:
     def __init__(self):
-        # Initialize the random forest classifier with a fixed random state for reproducibility.
-        self.clf = RandomForestClassifier(random_state=42, n_jobs=-1)
+        # Initialize the dummy classifier with a fixed random state for reproducibility.
+        # Using 'stratified' strategy which generates predictions based on training set's class distribution
+        self.clf = DummyClassifier(strategy='stratified', random_state=42)
         self.action_encoder = LabelEncoder()
         self.external_type_encoder = LabelEncoder()
 
     def _fit_preprocess(self, X):
         """Preprocess the input data."""
-        X.drop(columns=["External", "AccountID"], inplace=True)
-        X['Action'] = self.action_encoder.fit_transform(X['Action'])
-        X['External_Type'] = self.external_type_encoder.fit_transform(X['External_Type'])
+        X.drop(columns=["External", "AccountID", "Action", "External_Type"], inplace=True)
         return X
     
     def _predict_preprocess(self, X):
         """Preprocess the input data."""
-        X.drop(columns=["External", "AccountID"], inplace=True)
-        X['Action'] = self.action_encoder.transform(X['Action'])
-        X['External_Type'] = self.external_type_encoder.transform(X['External_Type'])
+        X.drop(columns=["External", "AccountID", "Action", "External_Type"], inplace=True)
         return X
 
     def fit(self, X, y):
-        """Fit the random forest model to the training data."""
+        """Fit the dummy model to the training data."""
         X = self._fit_preprocess(X)
         self.clf.fit(X, y)
     

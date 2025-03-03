@@ -1,0 +1,18 @@
+2025-03-03 14:58:23,553 - INFO - Starting prediction process...
+2025-03-03 14:58:24,038 - INFO - Imported Model from module models.rf
+2025-03-03 14:58:24,038 - INFO - Loading training data from multiple sources...
+2025-03-03 14:58:24,038 - INFO - Loading data from task/train_set/x_train.csv and task/train_set/y_train.csv
+2025-03-03 14:58:25,003 - INFO - Successfully loaded 1674104 samples from task/train_set/x_train.csv
+2025-03-03 14:58:25,003 - INFO - Loading data from task/val_set/x_val.csv and task/val_set/y_val.csv
+2025-03-03 14:58:26,055 - INFO - Successfully loaded 1792506 samples from task/val_set/x_val.csv
+2025-03-03 14:58:26,055 - INFO - Loading data from task/kaggle_set/x_kaggle.csv and task/kaggle_set/y_kaggle.csv
+2025-03-03 14:58:36,493 - INFO - Successfully loaded 6362620 samples from task/kaggle_set/x_kaggle.csv
+2025-03-03 14:58:36,493 - INFO - Combining all available training data...
+2025-03-03 14:58:37,014 - INFO - Combined data: 9829230 samples, 9 features
+2025-03-03 14:58:37,014 - INFO - Training model on combined data...
+2025-03-03 15:07:46,868 - INFO - Model training completed. Took: 0:09:09.850340
+2025-03-03 15:08:22,036 - INFO - Loading test data from task/test_set/x_test.csv
+2025-03-03 15:08:22,937 - INFO - Predicting on test set...
+2025-03-03 15:08:34,795 - INFO - Test transaction predictions written to logs/2025.03.03_14:58:23_models.rf_test_transaction.csv
+2025-03-03 15:08:34,937 - INFO - Test account predictions written to logs/2025.03.03_14:58:23_models.rf_test.csv
+2025-03-03 15:08:34,937 - INFO - Prediction process complete.

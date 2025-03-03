@@ -5,12 +5,28 @@ import os
 import datetime
 import logging
 
-# Global static path values (for test data and logs)
-TEST_X_PATH = "task/test_set/x_test.csv"
+# Global static path values
+TRAIN_X_PATHS = ["task/train_set/x_train.csv", "task/val_set/x_val.csv", "task/kaggle_set/x_kaggle.csv"]
+TRAIN_Y_PATHS = ["task/train_set/y_train.csv", "task/val_set/y_val.csv", "task/kaggle_set/y_kaggle.csv"]
+TEST_X_PATH  = "task/test_set/x_test.csv"
 TEST_OUTPUT_PATH = "task/test_set/y_test.csv"
+SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
-LOG_BASENAME = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
 
+def transaction_to_accountid(df, col='Fraudster', method='threshold'):
+    if method == 'mean':
+        # simple majority vote
+        return df.groupby('AccountID')[col].mean().round().astype(int).reset_index()
+    
+    if method == 'threshold':
+        # threshold based
+        grp = df.groupby('AccountID')[col].mean()
+        threshold = grp.quantile(0.85)  # Select top 15%
+        grp = (grp >= threshold).astype(int).reset_index()
+        return grp
+
+# Set up logging
 def setup_logger():
     os.makedirs(LOG_DIR, exist_ok=True)
     log_file = os.path.join(LOG_DIR, f"{LOG_BASENAME}.txt")
@@ -22,40 +38,44 @@ def setup_logger():
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     
-    # create file handler
+    # create file handler which logs even debug messages
     fh = logging.FileHandler(log_file)
     fh.setLevel(logging.INFO)
     
+    # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     fh.setFormatter(formatter)
     
+    # add the handlers to logger
     logger.addHandler(ch)
     logger.addHandler(fh)
     
     return logger
 
 @click.command()
-@click.option('--model_module', required=True, help='Python module containing the Model class')
-@click.option('--train_x', required=True, multiple=True, help='Path(s) to training X CSV file(s)')
-@click.option('--train_y', required=True, multiple=True, help='Path(s) to training Y CSV file(s)')
-@click.option('--test_x', default=TEST_X_PATH, help='Path to test X CSV file')
-@click.option('--output_path', default=TEST_OUTPUT_PATH, help='Path to write the predictions CSV file')
-def main(model_module, train_x, train_y, test_x, output_path):
+@click.option('--model_module', default="models.rf", required=True, help='Python module containing the Model class')
+def main(model_module):
     """
-    This script loads a Model from the given module, concatenates multiple training sources,
-    fits the model, and then predicts fraud labels for the test set.
+    This script loads a Model from the given module, trains it on the combined training and validation sets,
+    and then uses it to predict fraud labels for the test set.
     
-    The training set is built by merging each provided pair from --train_x and --train_y 
-    on "AccountID" and then appending them together.
-    
-    The test predictions are written out to the specified output_path with columns:
-      AccountID,Fraudster
+    Expected data files:
+      - Training: TRAIN_X_PATH, TRAIN_Y_PATH
+      - Validation: VAL_X_PATH, VAL_Y_PATH
+      - Test: TEST_X_PATH
+         
+    The test predictions are written out to the logs directory with the format:
+    logs/<timestamp>_<model_module>_test.csv (with columns AccountID,Fraudster).
+    All log output is written to stdout and also saved to logs/<timestamp>_<model_module>.txt.
     """
-    logger = setup_logger()
-    logger.info("Starting prediction pipeline...")
+    global LOG_BASENAME
+    LOG_BASENAME += f"_{model_module}"
 
-    # Import the model dynamically.
+    logger = setup_logger()
+    logger.info("Starting prediction process...")
+
+    # Dynamically import the module containing the Model class.
     try:
         mod = importlib.import_module(model_module)
         Model = getattr(mod, "Model")
@@ -63,60 +83,69 @@ def main(model_module, train_x, train_y, test_x, output_path):
     except Exception as e:
         logger.error(f"Error importing Model from module {model_module}: {e}")
         return
-
-    # Check that the number of provided training X files equals training Y files.
-    if len(train_x) != len(train_y):
-        logger.error("The number of training X files must equal the number of training Y files.")
-        return
-
-    # Load and merge the training data from provided sources.
-    merged_dfs = []
-    for tx, ty in zip(train_x, train_y):
-        logger.info(f"Loading training data from {tx} and {ty}")
-        X_df = pd.read_csv(tx)
-        Y_df = pd.read_csv(ty)
-        merged_df = pd.merge(X_df, Y_df, on="AccountID")
-        merged_dfs.append(merged_df)
-    all_train = pd.concat(merged_dfs, ignore_index=True)
-    logger.info(f"Combined training data: {all_train.shape[0]} samples, {all_train.shape[1]} columns")
-
-    # Split into features and target.
-    # Drop the Fraudster column (and AccountID) for features.
-    X_train = all_train.drop(columns=["AccountID", "Fraudster"])
-    y_train = all_train["Fraudster"]
     
-    logger.info(f"Training data prepared: {X_train.shape[0]} samples with {X_train.shape[1]} features.")
+    # --- Load and combine all training data ---
+    logger.info("Loading training data from multiple sources...")
+    combined = []
+
+    for x_path, y_path in zip(TRAIN_X_PATHS, TRAIN_Y_PATHS):
+        logger.info(f"Loading data from {x_path} and {y_path}")
+        try:
+            x_data = pd.read_csv(x_path, compression='gzip')
+            y_data = pd.read_csv(y_path, compression='infer')
+            # Merge sets on AccountID
+            dataset = pd.merge(x_data, y_data, on="AccountID")
+            combined.append(dataset)
+            logger.info(f"Successfully loaded {len(dataset)} samples from {x_path}")
+        except Exception as e:
+            logger.warning(f"Could not load data from {x_path} or {y_path}: {e}")
+
+    # --- Combine all datasets ---
+    logger.info("Combining all available training data...")
+    combined_data = pd.concat(combined, ignore_index=True)
+    X_combined = combined_data.drop(columns=["Fraudster"])
+    y_combined = combined_data["Fraudster"]
+    logger.info(f"Combined data: {X_combined.shape[0]} samples, {X_combined.shape[1]} features")
     
-    # Initialize and train model.
+    # --- Initialize and train model ---
     model = Model()
-    logger.info("Training model...")
-    model.fit(X_train, y_train)
-    logger.info("Model training completed.")
+    cur_time = datetime.datetime.now()
+    logger.info("Training model on combined data...")
+    model.fit(X_combined, y_combined)
+    logger.info(f"Model training completed. Took: {datetime.datetime.now() - cur_time}")
+    model.save(os.path.join(LOG_DIR, f"{LOG_BASENAME}_model.pkl"))
 
-    # --- Predict on test set ---
-    logger.info(f"Loading test data from {test_x}")
-    x_test = pd.read_csv(test_x)
+    # --- Predict on test set and output predictions ---
+    logger.info(f"Loading test data from {TEST_X_PATH}")
+    x_test = pd.read_csv(TEST_X_PATH, compression='gzip')
+    y_test_df = pd.read_csv(SKELETON, compression='infer')
+    # Preserve AccountID for output.
     test_ids = x_test["AccountID"]
-    X_test = x_test.drop(columns=["AccountID"])
+    X_test = x_test
     logger.info("Predicting on test set...")
     y_test_pred = model.predict(X_test)
-    
-    # Prepare output DataFrame.
+    # Prepare output DataFrame with columns AccountID, Fraudster.
     out_df = pd.DataFrame({
         "AccountID": test_ids,
         "Fraudster": y_test_pred
     })
-    
-    # Write predictions to output path.
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    out_df.to_csv(output_path, index=False)
-    logger.info(f"Test predictions written to {output_path}")
-    
-    # Also, write predictions to logs/y_test.csv.
-    logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")
+    # Write the transaction-level predictions
+    logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test_transaction.csv")
     out_df.to_csv(logs_test_path, index=False)
-    logger.info(f"Test predictions also written to {logs_test_path}")
-    logger.info("Prediction pipeline complete.")
+    logger.info(f"Test transaction predictions written to {logs_test_path}")
+
+    # Additionally write out per AccountID predictions.
+    accountids = transaction_to_accountid(out_df, col='Fraudster')
+    accountids = accountids.set_index('AccountID').reindex(y_test_df['AccountID']).reset_index()
+    assert all(accountids['AccountID'] == y_test_df['AccountID'])
+    logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")
+    accountids.to_csv(logs_test_path, index=False)
+    logger.info(f"Test account predictions written to {logs_test_path}")
+
+    logger.info("Prediction process complete.")
+
 
 if __name__ == "__main__":
+    # example usage:
+    # python predict.py --model_module models.rf
     main()

@@ -1,11 +1,12 @@
 import pickle
 from sklearn.calibration import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
+from imblearn.ensemble import BalancedRandomForestClassifier
 
 class Model:
     def __init__(self):
-        # Initialize the random forest classifier with a fixed random state for reproducibility.
-        self.clf = RandomForestClassifier(random_state=42, n_jobs=-1)
+        # Initialize the balanced random forest classifier with a fixed random state for reproducibility.
+        # This classifier implements a random under-sampling strategy for handling class imbalance
+        self.clf = BalancedRandomForestClassifier(random_state=42, n_jobs=-1)
         self.action_encoder = LabelEncoder()
         self.external_type_encoder = LabelEncoder()
 
@@ -24,7 +25,7 @@ class Model:
         return X
 
     def fit(self, X, y):
-        """Fit the random forest model to the training data."""
+        """Fit the balanced random forest model to the training data."""
         X = self._fit_preprocess(X)
         self.clf.fit(X, y)
     

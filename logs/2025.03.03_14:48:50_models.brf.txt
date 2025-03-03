@@ -1,0 +1,34 @@
+2025-03-03 14:48:50,124 - INFO - Starting evaluation...
+2025-03-03 14:48:52,410 - INFO - Imported Model from module models.brf
+2025-03-03 14:48:52,410 - INFO - Loading training data from task/train_set/x_train.csv and task/train_set/y_train.csv
+2025-03-03 14:48:53,521 - INFO - Training data: 1674104 samples, 9 features
+2025-03-03 14:48:53,521 - INFO - Training model...
+2025-03-03 14:49:24,048 - INFO - Model training completed. Took: 0:00:30.526940 min
+2025-03-03 14:49:28,391 - INFO - Loading validation data from task/val_set/x_val.csv and task/val_set/y_val.csv
+2025-03-03 14:49:29,433 - INFO - Validation data: 1792506 samples, 9 features
+2025-03-03 14:49:29,433 - INFO - Predicting on validation set...
+2025-03-03 14:49:35,532 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.88      0.73      0.80   1565633
+           1       0.15      0.33      0.20    226873
+
+    accuracy                           0.67   1792506
+   macro avg       0.51      0.53      0.50   1792506
+weighted avg       0.79      0.67      0.72   1792506
+
+2025-03-03 14:49:35,614 - INFO - Classification Report **Per Account** on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.90      0.88      0.89      9588
+           1       0.32      0.36      0.34      1472
+
+    accuracy                           0.81     11060
+   macro avg       0.61      0.62      0.61     11060
+weighted avg       0.82      0.81      0.82     11060
+
+2025-03-03 14:49:35,614 - INFO - Loading test data from task/test_set/x_test.csv
+2025-03-03 14:49:36,393 - INFO - Predicting on test set...
+2025-03-03 14:49:41,899 - INFO - Test predictions also written to logs/2025.03.03_14:48:50_models.brf_test_transaction.csv
+2025-03-03 14:49:41,970 - INFO - Test account id predictions also written to logs/2025.03.03_14:48:50_models.brf_test.csv
+2025-03-03 14:49:41,970 - INFO - Evaluation complete.
