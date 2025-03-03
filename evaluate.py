@@ -28,6 +28,13 @@ def transaction_to_accountid(df, col='Fraudster', method='threshold'):
         threshold = grp.quantile(0.85)  # Select top 15%
         grp = (grp >= threshold).astype(int).reset_index()
         return grp
+    
+    if method == 'threshold_sum':
+        # threshold based
+        grp = df.groupby('AccountID')[col].sum()
+        threshold = grp.quantile(0.85)  # Select top 15%
+        grp = (grp >= threshold).astype(int).reset_index()
+        return grp
 
 # Set up logging
 def setup_logger():

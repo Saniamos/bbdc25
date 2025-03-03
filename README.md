@@ -17,12 +17,14 @@
             -> https://www.kaggle.com/code/salmarashwan/building-a-fraud-detection-model-paysim-case-study this has really good results just with a rf, not sure if this applies to this dataset as well, but we'll see. double check cross_validation and features used
 
 
-
 ## Understandings:
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)
+- the aggregation per accountid is based on quantiles atm -> the model before should be tuned for fraud precision over recall as faulty transaction labeling is more costly than missing a fraudulent transaction, specifically as not all transactions of a fraudulent account are necissarily fraudulent
 
 
 ## Log:
 - read desrciption and added some thoughts
 - plot data
+- setup pipeline and implemented dummy, rf and brf
+- submitted two submissions with rf on train.csv and rf on train+val+kaggle
 
