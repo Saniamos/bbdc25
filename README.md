@@ -16,6 +16,10 @@
        -> there also are example models, we should try those first
             -> https://www.kaggle.com/code/salmarashwan/building-a-fraud-detection-model-paysim-case-study this has really good results just with a rf, not sure if this applies to this dataset as well, but we'll see. double check cross_validation and features used
 
+- consider model options:
+    - transaction -> fraud and then aggregation (current pipeline)
+    - aggregated transactions per account -> fraud
+
 
 ## Understandings:
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)

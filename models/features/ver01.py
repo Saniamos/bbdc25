@@ -11,6 +11,7 @@ class Features:
         X['Action'] = self.action_encoder.fit_transform(X['Action'])
         X['External_Type'] = self.external_type_encoder.fit_transform(X['External_Type'])
         X['ToD'] = X['Hour'] % 24
+        X['DoW'] = X['Hour'] % (7 * 24)
         return X
     
     # def _predict_preprocess(self, X):
