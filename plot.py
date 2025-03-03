@@ -282,7 +282,7 @@ def plot_fraudsters_by_external_type(transactions_df, fraud_df, output_path):
 @click.option('--fraud_path', default=None, help='Optional path to the fraud label CSV file')
 @click.option('--val_name', default='x_val', help='Base filename for the output PNGs')
 def main(transactions_path, fraud_path, val_name):
-    transactions_df = pd.read_csv(transactions_path)
+    transactions_df = pd.read_csv(transactions_path, compression='gzip')
     prefix = f"{val_name}_"
     
     # Generate plots that only require transactions data
