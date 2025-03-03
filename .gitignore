@@ -176,3 +176,9 @@ venv/
 task/train_set/
 task/test_set/
 task/val_set/
+
+task_orig/train_set/
+task_orig/test_set/
+task_orig/val_set/
+
+*.csv
