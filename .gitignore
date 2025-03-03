@@ -169,3 +169,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+venv/
+
+task/train_set/
+task/test_set/
+task/val_set/

@@ -1,0 +1,21 @@
+Vertraulichkeitserklärung
+
+Bei den Daten, die im Rahmen der Bremen Big Data Challenge (BBDC) zur Verfügung gestellt werden, handelt es sich sensible und schützenswerte Daten.
+Mit meiner Teilnahme verpflichte ich mich, die im Rahmen der BBDC durch das Cognitive Systems Lab (CSL) der Universität Bremen zur Verfügung gestellten Informationen und Daten
+- strikt vertraulich zu behandeln,
+- ausschließlich zum Lösen der Aufgabe in der BBDC zu verwenden,
+- keinen Dritten zugänglich zu machen und insbesondere dafür zu sorgen, dass die Daten nicht auf anderen als meinen eigenen Computern übertragen werden,
+- die Daten inklusive aller darüber angefertigten Transkripte, Annotationen, etc. spätestens nach der BBDC-Preisverleihung vollständig zu löschen.
+
+
+---- EN Version ----------
+
+Confidentiality Declaration
+
+The data provided within the scope of the Bremen Big Data Challenge (BBDC) constitutes sensitive and confidential information.
+
+By participating, I commit to:
+- Treat the information and data provided by the Cognitive Systems Lab (CSL) of the University of Bremen within the BBDC strictly confidentially.
+- Use the information and data exclusively for solving the task in the BBDC.
+- Not disclose it to any third party, ensuring that the data is not transferred to computers other than my own.
+- Delete the data, including all transcriptions, annotations, etc., no later than after the BBDC award ceremony.

@@ -1,0 +1,9 @@
+numpy
+pandas
+seaborn
+matplotlib
+
+click
+
+scikit-learn
+
