@@ -184,4 +184,5 @@ task_orig/val_set/
 *.csv
 *.parquet
 *.pkl
+*.json
 !submissions.csv
