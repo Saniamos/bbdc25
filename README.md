@@ -29,8 +29,9 @@
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)
 - the aggregation per accountid is based on quantiles atm -> the model before should be tuned for fraud precision over recall as faulty transaction labeling is more costly than missing a fraudulent transaction, specifically as not all transactions of a fraudulent account are necissarily fraudulent
     -> tuning for precision can achieve 100% fraud transaction precision, but recall is low resulting in bad fraudster f1 -> tuning is not worth it atm
-    -> adjusted cv split for less agressive optimization and adjusted aggregation method
+    -> adjusted cv split for less agressive optimization and adjusted aggregation method -> results are on par without precision tuning -> might consider to revisit in final models, but not atm
 - Ver01 feature set is better (over raw) in rf and brf: roughly doubles fraud precision (transaction) and is ~8 points better in macro f1, 20 in fraud f1 (account)
+- Ver02 feature set is 
 
 ## Log:
 - read desrciption and added some thoughts
@@ -38,6 +39,9 @@
 - setup pipeline and implemented dummy, rf and brf
 - submitted two submissions with rf on train.csv and rf on train+val+kaggle
 - added features (mostly from the diss/chatgpt: transactional, some behavioural, some social -> could be more, no agent based)
-- re-ran models with new features -> pretty good results
-- added precision optimized rf -> results are mixed
+- re-ran models with v01 features -> pretty good results (see above)
+- added precision optimized rf -> results are not better but have higher risk
+- realized that the fraudster percentage is more like 13% (at least in train and val) -> does lead to worse results -> probably tune at the end
+- added features v02
+- re-ran models with v02 features -> pretty good results (see above)
 

@@ -78,7 +78,7 @@ class Features:
         
         # Process external types more efficiently
         ext_types = X['External_Type'].unique()
-        for external_type in ext_types:
+        for external_type in sorted(map(str, ext_types)):
             mask = (X['External_Type'] == external_type).astype('int8')
             ext_grouped = mask.groupby(X['AccountID'].values)  # Use values for efficiency
             result_df[f'NumExternalAccounts{external_type}'] = ext_grouped.transform('sum').values
@@ -90,7 +90,7 @@ class Features:
         
         # Copy needed columns from X to result_df
         for col in X.columns:
-            if col not in result_df and col not in ['External', 'AccountID', 'Day']:  # Added 'Day' here
+            if col not in result_df:
                 result_df[col] = X[col]
         
         return result_df
