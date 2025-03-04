@@ -19,7 +19,7 @@ SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
 
-def transaction_to_accountid(df, col='Fraudster', method='threshold'):
+def transaction_to_accountid(df, col='Fraudster', method='threshold', logger=None):
     if method == 'mean':
         # simple majority vote
         return df.groupby('AccountID')[col].mean().round().astype(int).reset_index()
@@ -41,10 +41,13 @@ def transaction_to_accountid(df, col='Fraudster', method='threshold'):
             for val in sorted_vals:
                 if (grp >= val).sum() <= target_count:
                     threshold = val
+                else:
                     break
         
         # Apply the threshold
+        selected_percentage = (grp >= threshold).mean() * 100
         grp = (grp >= threshold).astype(int).reset_index()
+        logger.info(f"Threshold: {threshold}, Selected: {selected_percentage:.2f}%")
         return grp
     
     if method == 'threshold_sum':
@@ -82,7 +85,7 @@ def setup_logger():
     return logger
 
 @click.command()
-@click.option('--model_module', default="models.rf", required=True, help='Python module containing the Model class')
+@click.option('--model_module', default="models.rf_precision", required=True, help='Python module containing the Model class')
 def main(model_module):
     """
     This script loads a Model from the given module, trains it on the training set,
@@ -157,7 +160,7 @@ def main(model_module):
 
     # Additionally calc per AccountID predictions.
     x_val_df['Pred'] = y_val_pred
-    accountids_val = transaction_to_accountid(x_val_df, col='Pred')
+    accountids_val = transaction_to_accountid(x_val_df, col='Pred', logger=logger)
     accountids_val = accountids_val.set_index('AccountID').reindex(y_val_df['AccountID']).reset_index()
     assert all(accountids_val['AccountID'] == y_val_df['AccountID'])
     report = classification_report(y_val_df['Fraudster'], accountids_val['Pred'])
@@ -184,7 +187,7 @@ def main(model_module):
     logger.info(f"Test predictions also written to {logs_test_path}")
 
     # Additionally write out per AccountID predictions.
-    accountids = transaction_to_accountid(out_df, col='Fraudster')
+    accountids = transaction_to_accountid(out_df, col='Fraudster', logger=logger)
     accountids = accountids.set_index('AccountID').reindex(y_test_df['AccountID']).reset_index()
     assert all(accountids['AccountID'] == y_test_df['AccountID'])
     logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")

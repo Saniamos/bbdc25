@@ -98,11 +98,11 @@ class Features:
 
 if __name__ == "__main__":
     import pandas as pd
-    VAL_X_PATH   = "/Users/yale/Repositories/bbdc25/task/val_set/x_val.csv"
-    VAL_Y_PATH   = "/Users/yale/Repositories/bbdc25/task/val_set/y_val.csv"
+    VAL_X_PATH   = "/Users/yale/Repositories/bbdc25/task/val_set/x_val.parquet"
+    VAL_Y_PATH   = "/Users/yale/Repositories/bbdc25/task/val_set/y_val.parquet"
 
-    x_val_df = pd.read_csv(VAL_X_PATH, compression='gzip')
-    y_val_df = pd.read_csv(VAL_Y_PATH, compression='infer')
+    x_val_df = pd.read_parquet(VAL_X_PATH)
+    y_val_df = pd.read_parquet(VAL_Y_PATH)
     val = pd.merge(x_val_df, y_val_df, on="AccountID")[:100_000]
     # val = pd.merge(x_val_df, y_val_df, on="AccountID")
     X_val = val.drop(columns=["Fraudster"])
