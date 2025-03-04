@@ -22,7 +22,7 @@ TEST_X_PATH  = f"task/test_set/x_test{FTSET}.parquet"
 TEST_OUTPUT_PATH = f"task/test_set/y_test{FTSET}.parquet"
 SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
-LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
+LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
 # Combined paths for full retrain
 TRAIN_X_PATHS = [TRAIN_X_PATH, VAL_X_PATH, KAGGLE_X_PATH]
@@ -244,18 +244,18 @@ def refit_model(model, X, y, logger, save_path=None):
 
 @click.command()
 @click.option('--model_module', default="models.xgboost", required=True, help='Python module containing the Model class')
-@click.option('--full_retrain', is_flag=True, default=False, help='If set, retrain on all data after evaluation and predict test set')
-def main(model_module, full_retrain):
+@click.option('--retrain', is_flag=True, default=False, help='If set, retrain on all data after evaluation and predict test set')
+def main(model_module, retrain):
     """Main function with evaluation and optional full retrain"""
     global LOG_BASENAME
     LOG_BASENAME += f"_{model_module}"
-    if full_retrain:
-        LOG_BASENAME += "_full_retrain"
+    if retrain:
+        LOG_BASENAME += "_retrain"
 
     logger = setup_logger()
     # Log configuration
     logger.info(f"FTSET: {FTSET}")
-    logger.info(f"Full Retrain: {full_retrain}")
+    logger.info(f"Full Retrain: {retrain}")
     logger.info(f"Model Module: {model_module}")
     
     # Dynamically import the Model class
@@ -316,7 +316,7 @@ def main(model_module, full_retrain):
     # Replace the full retrain section with this updated code:
 
     # --- Full retrain process (if flag is set) ---
-    if full_retrain:
+    if retrain:
         logger.info("Starting full retrain process using model.refit()...")
         
         # Load and combine all training data
@@ -355,5 +355,5 @@ def main(model_module, full_retrain):
 if __name__ == "__main__":
     # example usage:
     # python evaluate.py --model_module models.rf
-    # python evaluate.py --model_module models.rf --full_retrain
+    # python evaluate.py --model_module models.rf --retrain
     main()
