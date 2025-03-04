@@ -1,5 +1,4 @@
-import pickle
-from models.features.simple_encode import Features
+from models.features.encode import Features
 import xgboost as xgb
 
 class Model:
@@ -22,6 +21,10 @@ class Model:
         """Predict probabilities for the given data."""
         X = self.fts._predict_preprocess(X)
         return self.clf.predict_proba(X)
+    
+    def refit(self, X, y):
+        """Refit the model to the given data."""
+        self.fit(X, y)
     
     def log_params(self):
         """Log the hyperparameters of the model."""

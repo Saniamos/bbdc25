@@ -24,6 +24,10 @@ class Model:
         X = self.fts._predict_preprocess(X)
         return self.clf.predict_proba(X)
     
+    def refit(self, X, y):
+        """Refit the model to the given data."""
+        self.fit(X, y)
+    
     def log_params(self):
         """Log the hyperparameters of the model."""
         return self.clf.get_params()

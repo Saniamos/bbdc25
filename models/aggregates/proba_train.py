@@ -1,18 +1,17 @@
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
 
 class ProbaTrain:
     def __init__(self, model, fraudster_percentage=0.13, logger=None):
         self.model = model
         self.fraudster_percentage = fraudster_percentage
         self.logger = logger.info if logger else print
-        self.account_model = RandomForestClassifier(random_state=42)
+        self.account_model = xgb.XGBClassifier(random_state=42)
 
     def _create_account_features(self, x, skeleton):
         """
         Create account-level features from transaction-level features using vectorized operations.
-        Including all 10 histogram bins as separate features.
         """
         # Get fraud probability predictions
         y_pred_fraud = self.model.predict_proba(x)[:, 1]
@@ -23,7 +22,7 @@ class ProbaTrain:
             "FraudProb": y_pred_fraud
         })
         
-        # First calculate standard aggregations
+        # First calculate standard aggregations - this is already efficient
         account_features = pred_df.groupby("AccountID")["FraudProb"].agg([
             ("mean", "mean"),
             ("std", "std"),
@@ -33,32 +32,34 @@ class ProbaTrain:
             ("count", "size")
         ]).reset_index()
         
-        # Calculate histograms for each account ID
-        hist_dict = {}
-        for account_id, group in pred_df.groupby("AccountID"):
-            hist, _ = np.histogram(group["FraudProb"], bins=10, range=(0, 1))
-            hist_dict[account_id] = hist
+        # Replace for loop with vectorized histogram calculation
+        # Group by AccountID and apply histogram function to each group
+        def calc_hist(group):
+            hist, _ = np.histogram(group, bins=10, range=(0, 1))
+            return pd.Series(hist, index=[f'hist_bin_{i}' for i in range(10)])
         
-        # Convert histogram data to DataFrame
-        hist_df = pd.DataFrame.from_dict(hist_dict, orient='index')
-        hist_df.columns = [f'hist_bin_{i}' for i in range(10)]
-        hist_df.index.name = 'AccountID'
-        hist_df = hist_df.reset_index()
+        # Apply histogram function to each group
+        hist_df = pred_df.groupby("AccountID")["FraudProb"].apply(calc_hist).unstack().reset_index()
         
         # Merge standard aggregations with histograms
         account_features = pd.merge(account_features, hist_df, on="AccountID", how="left")
         
         # Merge with skeleton to ensure proper order and handle missing accounts
         result = pd.merge(
-            skeleton[["AccountID"]].drop_duplicates(), 
+            skeleton[["AccountID"]], 
             account_features,
             on="AccountID", 
             how="left"
-        ).fillna(-1)  # Fill missing values with -1
+        )
+        # use the mean as nan indicator, as std might be nan if too little data is present
+        self.logger(f"NaN values in the final result: {result['mean'].isnull().sum()}")
+
+        result = result.fillna(-1)  # Fill missing values with -1
         
         # Convert to numpy array excluding the AccountID column
         output_array = result.iloc[:, 1:].values
         
+        self.logger(f"Account features shape: {output_array.shape}")
         return output_array
 
     def fit(self, x_df, y_df):
@@ -67,6 +68,7 @@ class ProbaTrain:
         y_labels = y_df["Fraudster"].values
         
         self.account_model.fit(x_features, y_labels)
+        self.logger("Account model trained.")
         return self
 
     def predict(self, x, skeleton):
@@ -75,22 +77,14 @@ class ProbaTrain:
         account_ids = skeleton["AccountID"].values
         
         # Calculate threshold using numpy's quantile
-        threshold = np.quantile(prd, 1 - self.fraudster_percentage)
+        # start with the given percentage and decrease by 0.1 until the selected percentage is below the target
+        target_count = int(len(prd) * self.fraudster_percentage)
+        for i in range(int(self.fraudster_percentage * 100), 0, -1):
+            threshold = np.quantile(prd, 1 - i / 100)
+            if np.sum(prd >= threshold) <= target_count:
+                break
         selected_percentage = np.mean(prd >= threshold) * 100
         
-        # If too many accounts would be selected (e.g., all or nearly all)
-        if selected_percentage > 20:  # If more than 20% would be selected
-            # Find the threshold that selects closest to but not more than the target
-            sorted_vals = np.sort(np.unique(prd))[::-1]  # Sort in descending order
-            target_count = int(len(prd) * self.fraudster_percentage)
-            
-            for val in sorted_vals:
-                if np.sum(prd >= val) <= target_count:
-                    threshold = val
-                else:
-                    break
-        
-        selected_percentage = np.mean(prd >= threshold) * 100
         self.logger(f"Threshold: {threshold}, Selected: {selected_percentage:.2f}%")
         
         # Create the final result DataFrame

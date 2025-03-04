@@ -1,29 +1,39 @@
 import pandas as pd
+import numpy as np
 
 def predict_and_aggregate(model, x_df, fraudster_percentage=0.13, logger=None):
+    logger = logger.info if logger else print
     y_pred = model.predict_proba(x_df)
     out_df = pd.DataFrame({
         "AccountID": x_df["AccountID"],
         "Fraudster": y_pred[:, 1]
     })
     grp = out_df.groupby('AccountID')["Fraudster"].mean()
-    threshold = grp.quantile(1 - fraudster_percentage)
-    selected_percentage = (grp >= threshold).mean() * 100
     
-    # If too many accounts would be selected (e.g., all or nearly all)
-    if selected_percentage > 20:  # If more than 20% would be selected
-        # Find the threshold that selects closest to but not more than 15%
-        sorted_vals = sorted(grp.unique(), reverse=True)
-        target_count = int(len(grp) * fraudster_percentage)
-        
-        for val in sorted_vals:
-            if (grp >= val).sum() <= target_count:
-                threshold = val
-            else:
-                break
+    # Convert Series to numpy array for consistent processing
+    account_ids = grp.index.values
+    probs = grp.values
     
-    if logger:
-        selected_percentage = (grp >= threshold).mean() * 100
-        logger.info(f"Threshold: {threshold}, Selected: {selected_percentage:.2f}%")
-    aggregated = (grp >= threshold).astype(int).reset_index()
+    # Calculate threshold using numpy's quantile
+    # Start with the given percentage and decrease until the selected percentage is below the target
+    target_count = int(len(probs) * fraudster_percentage)
+    
+    # Loop through decreasing percentiles to find the right threshold
+    for i in range(int(fraudster_percentage * 100), 0, -1):
+        i_percent = i / 100  # Convert to percentage (i.e., 13 -> 0.13)
+        threshold = np.quantile(probs, 1 - i_percent)
+        if np.sum(probs >= threshold) <= target_count:
+            break
+    
+    # Calculate the percentage of accounts selected
+    selected_percentage = np.mean(probs >= threshold) * 100
+    logger(f"Threshold: {threshold}, Selected: {selected_percentage:.2f}%")
+    
+    # Create the final result DataFrame
+    fraudster_flags = (probs >= threshold).astype(int)
+    aggregated = pd.DataFrame({
+        "AccountID": account_ids,
+        "Fraudster": fraudster_flags
+    })
+    
     return aggregated
