@@ -1,3 +1,4 @@
+from functools import partial
 import click
 import importlib
 import pandas as pd
@@ -5,6 +6,9 @@ import os
 import datetime
 import logging
 from sklearn.metrics import classification_report
+from models.aggregates.prediction_threshold import predict_and_aggregate as predict_and_aggregate_threshold
+from models.aggregates.proba_threshold import predict_and_aggregate as predict_and_aggregate_proba
+from models.aggregates.proba_train import ProbaTrain
 
 # Global static path values
 FTSET = ''
@@ -20,43 +24,8 @@ SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
 
-def transaction_to_accountid(df, col='Fraudster', method='threshold_sum', logger=None):
-    fraudster_percentage = 0.15
+# Removed: local transaction_to_accountid function
 
-    if method == 'mean':
-        # simple majority vote
-        return df.groupby('AccountID')[col].mean().round().astype(int).reset_index()
-    
-    if method == 'threshold' or method == 'threshold_sum':
-        # threshold based
-        if method == 'threshold':
-            grp = df.groupby('AccountID')[col].mean()
-        else:
-            grp = df.groupby('AccountID')[col].sum()
-        threshold = grp.quantile(1 - fraudster_percentage)
-        
-        # Check what percentage of accounts would be selected
-        selected_percentage = (grp >= threshold).mean() * 100
-        
-        # If too many accounts would be selected (e.g., all or nearly all)
-        if selected_percentage > 20:  # If more than 20% would be selected
-            # Find the threshold that selects closest to but not more than 15%
-            sorted_vals = sorted(grp.unique(), reverse=True)
-            target_count = int(len(grp) * fraudster_percentage)
-            
-            for val in sorted_vals:
-                if (grp >= val).sum() <= target_count:
-                    threshold = val
-                else:
-                    break
-        
-        # Apply the threshold
-        selected_percentage = (grp >= threshold).mean() * 100
-        grp = (grp >= threshold).astype(int).reset_index()
-        logger.info(f"Threshold: {threshold}, Selected: {selected_percentage:.2f}%")
-        return grp
-
-# Set up logging
 def setup_logger():
     os.makedirs(LOG_DIR, exist_ok=True)
     log_file = os.path.join(LOG_DIR, f"{LOG_BASENAME}.txt")
@@ -126,9 +95,9 @@ def main(model_module):
     # --- Load training data ---
     logger.info(f"Loading training data from {TRAIN_X_PATH} and {TRAIN_Y_PATH}")
     x_train = pd.read_parquet(TRAIN_X_PATH)
-    y_train = pd.read_parquet(TRAIN_Y_PATH)
+    y_train_df = pd.read_parquet(TRAIN_Y_PATH)  # Keep original DataFrame for ProbaTrain
     # Merge training sets on AccountID
-    train = pd.merge(x_train, y_train, on="AccountID")
+    train = pd.merge(x_train, y_train_df, on="AccountID")
     # Features: drop AccountID and Fraudster.
     X_train = train.drop(columns=["Fraudster"])
     y_train = train["Fraudster"]
@@ -157,22 +126,34 @@ def main(model_module):
     report = classification_report(y_val, y_val_pred)
     logger.info("Classification Report on Validation Set:\n" + report)
 
-    # Additionally calc per AccountID predictions.
-    x_val_df['Pred'] = y_val_pred
-    accountids_val = transaction_to_accountid(x_val_df, col='Pred', logger=logger)
-    accountids_val = accountids_val.set_index('AccountID').reindex(y_val_df['AccountID']).reset_index()
-    assert all(accountids_val['AccountID'] == y_val_df['AccountID'])
-    report = classification_report(y_val_df['Fraudster'], accountids_val['Pred'])
-    logger.info("Classification Report **Per Account** on Validation Set:\n" + report)
+    # Use new aggregated prediction for validation
+    for name, method, params in [("predict_and_aggregate_threshold", predict_and_aggregate_threshold, dict(method='threshold')),
+                    ("predict_and_aggregate_proba", predict_and_aggregate_proba, {}),
+                    ("predict_and_aggregate_threshold", predict_and_aggregate_threshold, dict(method='threshold_sum')),
+                    ("predict_and_aggregate_threshold", predict_and_aggregate_threshold, dict(method='mean'))]:
+        logger.info(f"Classification Report **Per Account** on Validation Set:\n{name}({params})")
+        accountids_val = method(model, x_val_df, logger=logger, **params)
+        accountids_val = accountids_val.set_index('AccountID').reindex(y_val_df['AccountID']).reset_index()
+        assert all(accountids_val['AccountID'] == y_val_df['AccountID'])
+        report = classification_report(y_val_df['Fraudster'], accountids_val['Fraudster'])
+        logger.info(report)
+        logger.info('--------------------------------------------------')
+    
+    # Use ProbaTrain for validation
+    logger.info("Classification Report **Per Account** on Validation Set with ProbaTrain")
+    proba_train = ProbaTrain(model=model, logger=logger)
+    proba_train.fit(x_train, y_train_df)
+    accountids_val_proba_train = proba_train.predict(x_val_df, skeleton=y_val_df)
+    report = classification_report(y_val_df['Fraudster'], accountids_val_proba_train['Fraudster'])
+    logger.info(report)
+    logger.info('--------------------------------------------------')
 
     # --- Predict on test set and output predictions ---
     logger.info(f"Loading test data from {TEST_X_PATH}")
-    x_test = pd.read_parquet(TEST_X_PATH)
+    X_test = pd.read_parquet(TEST_X_PATH)
     y_test_df = pd.read_csv(SKELETON)
     # Preserve AccountID for output.
-    test_ids = x_test["AccountID"]
-    X_test = x_test
-    # X_test = x_test.drop(columns=[])
+    test_ids = X_test["AccountID"]
     logger.info("Predicting on test set...")
     y_test_pred = model.predict(X_test)
     # Prepare output DataFrame with columns AccountID, Fraudster.
@@ -185,13 +166,19 @@ def main(model_module):
     out_df.to_csv(logs_test_path, index=False)
     logger.info(f"Test predictions also written to {logs_test_path}")
 
-    # Additionally write out per AccountID predictions.
-    accountids = transaction_to_accountid(out_df, col='Fraudster', logger=logger)
+    # Use new aggregated prediction for test
+    accountids = predict_and_aggregate_threshold(model, X_test, method='threshold', logger=logger)
     accountids = accountids.set_index('AccountID').reindex(y_test_df['AccountID']).reset_index()
     assert all(accountids['AccountID'] == y_test_df['AccountID'])
     logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")
     accountids.to_csv(logs_test_path, index=False)
     logger.info(f"Test account id predictions also written to {logs_test_path}")
+    
+    # Use ProbaTrain for test predictions
+    accountids_proba_train = proba_train.predict(X_test, skeleton=y_test_df)
+    logs_test_proba_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test_proba_train.csv")
+    accountids_proba_train.to_csv(logs_test_proba_path, index=False)
+    logger.info(f"Test account id predictions with ProbaTrain written to {logs_test_proba_path}")
 
     logger.info("Evaluation complete.")
 

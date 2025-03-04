@@ -7,14 +7,14 @@ class Features:
 
     def _fit_preprocess(self, X):
         """Preprocess the input data."""
-        X.drop(columns=["External", "AccountID"], inplace=True)
+        X = X.copy().drop(columns=["External", "AccountID"])
         X['Action'] = self.action_encoder.fit_transform(X['Action'])
         X['External_Type'] = self.external_type_encoder.fit_transform(X['External_Type'])
         return X
     
     def _predict_preprocess(self, X):
         """Preprocess the input data."""
-        X.drop(columns=["External", "AccountID"], inplace=True)
+        X = X.copy().drop(columns=["External", "AccountID"])
         X['Action'] = self.action_encoder.transform(X['Action'])
         X['External_Type'] = self.external_type_encoder.transform(X['External_Type'])
         return X

@@ -18,6 +18,11 @@ class Model:
         X = self.fts._predict_preprocess(X)
         return self.clf.predict(X)
     
+    def predict_proba(self, X):
+        """Predict probabilities for the given data."""
+        X = self.fts._predict_preprocess(X)
+        return self.clf.predict_proba(X)
+    
     def log_params(self):
         """Log the hyperparameters of the model."""
         return self.clf.get_params()

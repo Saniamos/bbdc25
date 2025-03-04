@@ -7,11 +7,11 @@ class Features:
 
     def _fit_preprocess(self, X):
         """Preprocess the input data."""
-        X.drop(columns=["External", "AccountID", "Action", "External_Type"], inplace=True)
+        X = X.copy().drop(columns=["External", "AccountID", "Action", "External_Type"])
         return X
     
     def _predict_preprocess(self, X):
         """Preprocess the input data."""
-        X.drop(columns=["External", "AccountID", "Action", "External_Type"], inplace=True)
+        X = X.copy().drop(columns=["External", "AccountID", "Action", "External_Type"])
         return X
 

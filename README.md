@@ -25,6 +25,8 @@
 
 - the documentation suggests there are no payments from merchants to customers (ie refunds) -> q auick search in the transactions also suggest, but does not confirm this
 
+-> new aggregation method idea: use predict_proba of model select a subset of transactions (not sure if sorted by highest or similar, or just pad) and then use another model to predict if the account is fraudulent or not
+
 ## Understandings:
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)
 - the aggregation per accountid is based on quantiles atm -> the model before should be tuned for fraud precision over recall as faulty transaction labeling is more costly than missing a fraudulent transaction, specifically as not all transactions of a fraudulent account are necissarily fraudulent
@@ -38,7 +40,8 @@
     - rf 
         - transaction: fraud: 1.5x precision, 4x recall, 4x f1
         - account: fraud f1: -3 points macro: identical (weirdly only 8% got selected -> because only one of their transactions got flagged and a lower threshold isn't possible)
-    => next: either consider better selection/aggregation method or try autopytorch
+    => next: either consider better selection/aggregation method or try autopytorch or try the simulation
+- RF with 1000 trees instead of 100 is better in transactional (+1 f1, +4pre and +1rec), but ironically not worse (-1) in account f1
 
 ## Log:
 - read desrciption and added some thoughts

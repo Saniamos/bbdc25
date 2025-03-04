@@ -74,26 +74,26 @@ class Features:
 
     def _fit_preprocess(self, X):
         """Preprocess the input data."""
-        X = self.extract(X)
+        X = self.extract(X.copy())
 
         # encoding - done in place
         X['Action'] = self.action_encoder.fit_transform(X['Action'])
         X['External_Type'] = self.external_type_encoder.fit_transform(X['External_Type'])
 
         # drop columns
-        X.drop(columns=["External", "AccountID"], inplace=True)
+        X = X.drop(columns=["External", "AccountID"])
         return X
     
     def _predict_preprocess(self, X):
         """Preprocess the input data."""
-        X = self.extract(X)
+        X = self.extract(X.copy())
 
         # encoding
         X['Action'] = self.action_encoder.transform(X['Action'])
         X['External_Type'] = self.external_type_encoder.transform(X['External_Type'])
 
         # drop columns
-        X.drop(columns=["External", "AccountID"], inplace=True)
+        X = X.drop(columns=["External", "AccountID"])
         return X
 
 if __name__ == "__main__":

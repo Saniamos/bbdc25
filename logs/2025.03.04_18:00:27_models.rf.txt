@@ -1,0 +1,98 @@
+2025-03-04 18:00:27,605 - INFO - FTSET: .ver02
+2025-03-04 18:00:27,605 - INFO - TRAIN_X_PATH: task/train_set/x_train.ver02.parquet
+2025-03-04 18:00:27,605 - INFO - TRAIN_Y_PATH: task/train_set/y_train.ver02.parquet
+2025-03-04 18:00:27,605 - INFO - VAL_X_PATH: task/val_set/x_val.ver02.parquet
+2025-03-04 18:00:27,605 - INFO - VAL_Y_PATH: task/val_set/y_val.ver02.parquet
+2025-03-04 18:00:27,605 - INFO - TEST_X_PATH: task/test_set/x_test.ver02.parquet
+2025-03-04 18:00:27,605 - INFO - TEST_OUTPUT_PATH: task/test_set/y_test.ver02.parquet
+2025-03-04 18:00:27,605 - INFO - Starting evaluation...
+2025-03-04 18:00:27,610 - INFO - Imported Model from module models.rf
+2025-03-04 18:00:27,610 - INFO - Loading training data from task/train_set/x_train.ver02.parquet and task/train_set/y_train.ver02.parquet
+2025-03-04 18:00:28,476 - INFO - Training data: 1674104 samples, 96 features
+2025-03-04 18:00:28,476 - INFO - Model hyperparameters: {'bootstrap': True, 'ccp_alpha': 0.0, 'class_weight': None, 'criterion': 'gini', 'max_depth': None, 'max_features': 'sqrt', 'max_leaf_nodes': None, 'max_samples': None, 'min_impurity_decrease': 0.0, 'min_samples_leaf': 1, 'min_samples_split': 2, 'min_weight_fraction_leaf': 0.0, 'monotonic_cst': None, 'n_estimators': 100, 'n_jobs': -1, 'oob_score': False, 'random_state': 42, 'verbose': 0, 'warm_start': False}
+2025-03-04 18:00:28,476 - INFO - Training model...
+2025-03-04 18:02:49,758 - INFO - Model training completed. Took: 0:02:21.282517 min
+2025-03-04 18:02:49,852 - INFO - Loading validation data from task/val_set/x_val.ver02.parquet and task/val_set/y_val.ver02.parquet
+2025-03-04 18:02:53,160 - INFO - Validation data: 1792506 samples, 96 features
+2025-03-04 18:02:53,161 - INFO - Predicting on validation set...
+2025-03-04 18:02:58,877 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.89      0.99      0.94   1565633
+           1       0.80      0.19      0.31    226873
+
+    accuracy                           0.89   1792506
+   macro avg       0.85      0.59      0.63   1792506
+weighted avg       0.88      0.89      0.86   1792506
+
+2025-03-04 18:02:58,878 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_threshold({'method': 'threshold'})
+2025-03-04 18:03:04,586 - INFO - Threshold: 0.0021897810218978104, Selected: 8.40%
+2025-03-04 18:03:04,598 - INFO -               precision    recall  f1-score   support
+
+           0       0.93      0.98      0.96      9588
+           1       0.82      0.52      0.64      1472
+
+    accuracy                           0.92     11060
+   macro avg       0.88      0.75      0.80     11060
+weighted avg       0.92      0.92      0.91     11060
+
+2025-03-04 18:03:04,598 - INFO - --------------------------------------------------
+2025-03-04 18:03:04,598 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_proba({})
+2025-03-04 18:03:08,833 - INFO - Threshold: 0.3034008713492082, Selected: 13.00%
+2025-03-04 18:03:08,846 - INFO -               precision    recall  f1-score   support
+
+           0       0.94      0.94      0.94      9588
+           1       0.60      0.59      0.60      1472
+
+    accuracy                           0.89     11060
+   macro avg       0.77      0.77      0.77     11060
+weighted avg       0.89      0.89      0.89     11060
+
+2025-03-04 18:03:08,846 - INFO - --------------------------------------------------
+2025-03-04 18:03:08,846 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_threshold({'method': 'threshold_sum'})
+2025-03-04 18:03:12,994 - INFO - Threshold: 1, Selected: 8.40%
+2025-03-04 18:03:13,005 - INFO -               precision    recall  f1-score   support
+
+           0       0.93      0.98      0.96      9588
+           1       0.82      0.52      0.64      1472
+
+    accuracy                           0.92     11060
+   macro avg       0.88      0.75      0.80     11060
+weighted avg       0.92      0.92      0.91     11060
+
+2025-03-04 18:03:13,005 - INFO - --------------------------------------------------
+2025-03-04 18:03:13,005 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_threshold({'method': 'mean'})
+2025-03-04 18:03:17,283 - INFO -               precision    recall  f1-score   support
+
+           0       0.91      0.99      0.95      9588
+           1       0.88      0.37      0.52      1472
+
+    accuracy                           0.91     11060
+   macro avg       0.89      0.68      0.74     11060
+weighted avg       0.91      0.91      0.89     11060
+
+2025-03-04 18:03:17,283 - INFO - --------------------------------------------------
+2025-03-04 18:03:17,283 - INFO - Classification Report **Per Account** on Validation Set with ProbaTrain
+2025-03-04 18:03:25,694 - INFO - Threshold: 0.02, Selected: 7.69%
+2025-03-04 18:03:25,699 - INFO -               precision    recall  f1-score   support
+
+           0       0.93      0.99      0.95      9588
+           1       0.83      0.48      0.61      1472
+
+    accuracy                           0.92     11060
+   macro avg       0.88      0.73      0.78     11060
+weighted avg       0.91      0.92      0.91     11060
+
+2025-03-04 18:03:25,699 - INFO - --------------------------------------------------
+2025-03-04 18:03:25,699 - INFO - Loading test data from task/test_set/x_test.ver02.parquet
+2025-03-04 18:03:26,012 - INFO - Predicting on test set...
+2025-03-04 18:03:30,292 - INFO - Test predictions also written to logs/2025.03.04_18:00:27_models.rf_test_transaction.csv
+2025-03-04 18:03:34,125 - INFO - Threshold: 0.0014684287812041115, Selected: 7.50%
+2025-03-04 18:03:34,142 - INFO - Test account id predictions also written to logs/2025.03.04_18:00:27_models.rf_test.csv
+2025-03-04 18:03:38,387 - INFO - Threshold: 0.02, Selected: 6.75%
+2025-03-04 18:03:38,392 - INFO - Test account id predictions with ProbaTrain written to logs/2025.03.04_18:00:27_models.rf_test_proba_train.csv
+2025-03-04 18:03:38,392 - INFO - Evaluation complete.

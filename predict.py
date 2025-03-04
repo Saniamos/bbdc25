@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import datetime
 import logging
+from models.aggregates.prediction_threshold import predict_and_aggregate
 
 # Global static path values
 FTSET = ''
@@ -15,18 +16,6 @@ TEST_OUTPUT_PATH = f"task/test_set/y_test{FTSET}.parquet"
 SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
-
-def transaction_to_accountid(df, col='Fraudster', method='threshold'):
-    if method == 'mean':
-        # simple majority vote
-        return df.groupby('AccountID')[col].mean().round().astype(int).reset_index()
-    
-    if method == 'threshold':
-        # threshold based
-        grp = df.groupby('AccountID')[col].mean()
-        threshold = grp.quantile(0.85)  # Select top 15%
-        grp = (grp >= threshold).astype(int).reset_index()
-        return grp
 
 # Set up logging
 def setup_logger():
@@ -120,24 +109,20 @@ def main(model_module):
     # --- Predict on test set and output predictions ---
     logger.info(f"Loading test data from {TEST_X_PATH}")
     x_test = pd.read_parquet(TEST_X_PATH)
-    y_test_df = pd.read_csv(SKELETON, compression='infer')
-    # Preserve AccountID for output.
+    y_test_df = pd.read_csv(SKELETON)
     test_ids = x_test["AccountID"]
-    X_test = x_test
     logger.info("Predicting on test set...")
-    y_test_pred = model.predict(X_test)
-    # Prepare output DataFrame with columns AccountID, Fraudster.
+    y_test_pred = model.predict(x_test)
     out_df = pd.DataFrame({
         "AccountID": test_ids,
         "Fraudster": y_test_pred
     })
-    # Write the transaction-level predictions
     logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test_transaction.csv")
     out_df.to_csv(logs_test_path, index=False)
     logger.info(f"Test transaction predictions written to {logs_test_path}")
 
-    # Additionally write out per AccountID predictions.
-    accountids = transaction_to_accountid(out_df, col='Fraudster')
+    # Use the new aggregation interface
+    accountids = predict_and_aggregate(model, x_test, method='threshold', logger=logger)
     accountids = accountids.set_index('AccountID').reindex(y_test_df['AccountID']).reset_index()
     assert all(accountids['AccountID'] == y_test_df['AccountID'])
     logs_test_path = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")
