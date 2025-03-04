@@ -7,12 +7,14 @@ import logging
 from sklearn.metrics import classification_report
 
 # Global static path values
-TRAIN_X_PATH = "task/train_set/x_train.csv"
-TRAIN_Y_PATH = "task/train_set/y_train.csv"
-VAL_X_PATH   = "task/val_set/x_val.csv"
-VAL_Y_PATH   = "task/val_set/y_val.csv"
-TEST_X_PATH  = "task/test_set/x_test.csv"
-TEST_OUTPUT_PATH = "task/test_set/y_test.csv"
+FTSET = ''
+FTSET = '.ver01'
+TRAIN_X_PATH = "task/train_set/x_train{FTSET}.csv"
+TRAIN_Y_PATH = "task/train_set/y_train{FTSET}.csv"
+VAL_X_PATH   = "task/val_set/x_val{FTSET}.csv"
+VAL_Y_PATH   = "task/val_set/y_val{FTSET}.csv"
+TEST_X_PATH  = "task/test_set/x_test{FTSET}.csv"
+TEST_OUTPUT_PATH = "task/test_set/y_test{FTSET}.csv"
 SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
@@ -83,6 +85,15 @@ def main(model_module):
     LOG_BASENAME += f"_{model_module}"
 
     logger = setup_logger()
+    # log configuration
+    logger.info(f"FTSET: {FTSET}")
+    logger.info(f"TRAIN_X_PATH: {TRAIN_X_PATH}")
+    logger.info(f"TRAIN_Y_PATH: {TRAIN_Y_PATH}")
+    logger.info(f"VAL_X_PATH: {VAL_X_PATH}")
+    logger.info(f"VAL_Y_PATH: {VAL_Y_PATH}")
+    logger.info(f"TEST_X_PATH: {TEST_X_PATH}")
+    logger.info(f"TEST_OUTPUT_PATH: {TEST_OUTPUT_PATH}")
+    # start evaluation
     logger.info("Starting evaluation...")
 
     # Dynamically import the module containing the Model class.

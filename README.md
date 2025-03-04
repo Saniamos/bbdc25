@@ -19,7 +19,11 @@
 - consider model options:
     - transaction -> fraud and then aggregation (current pipeline)
     - aggregated transactions per account -> fraud
+    - sequence modelling?
 
+- consider using autosklearn or autopytorch, since the data is tabular
+
+- the documentation suggests there are no payments from merchants to customers (ie refunds) -> q auick search in the transactions also suggest, but does not confirm this
 
 ## Understandings:
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)
@@ -31,4 +35,5 @@
 - plot data
 - setup pipeline and implemented dummy, rf and brf
 - submitted two submissions with rf on train.csv and rf on train+val+kaggle
+- added features (mostly from the diss/chatgpt: transactional, some behavioural, some social -> could be more, no agent based)
 

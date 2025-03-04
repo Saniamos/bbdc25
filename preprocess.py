@@ -1,3 +1,4 @@
+import importlib
 import click
 import pandas as pd
 import os
@@ -18,13 +19,27 @@ def get_external_type(x):
 @click.command()
 @click.option('--input_path', required=True, help='Path to the input CSV file')
 @click.option('--output_path', required=True, help='Path to write the processed CSV file')
-def preprocess(input_path, output_path):
+@click.option('--ft_module', required=False, default=None, help='Python module containing the Model class')
+def preprocess(input_path, output_path, ft_module):
+    # Dynamically import the module containing the Model class.
+    fts = None
+    if ft_module is not None:
+        try:
+            mod = importlib.import_module(ft_module)
+            fts = getattr(mod, "Features")
+            print(f"Imported Model from module {ft_module}")
+        except Exception as e:
+            print(f"Error importing Model from module {ft_module}: {e}")
+            return
+    
     # Read the CSV file
     df = pd.read_csv(input_path)
     
     # Check if the "External" column is present
     if "External" in df.columns:
         df["External_Type"] = df["External"].apply(get_external_type)
+        if fts is not None and hasattr(fts, "extract"):
+            df = fts().extract(df)
         print("Added External_Type column.")
     else:
         print("The 'External' column was not found in the input file.")
