@@ -54,4 +54,6 @@
 - realized that the fraudster percentage is more like 13% (at least in train and val) -> does lead to worse results -> probably tune at the end (as f1 is harmonic mean between precision and recall)
 - added features v02
 - re-ran models with v02 features -> pretty good / on par results (see above)
+- investigated aggregation strategies: while interesting, the main source of error remains uncertainty in the transactional model
+
 

@@ -12,9 +12,10 @@ class ProbaTrain:
     def _create_account_features(self, x, skeleton):
         """
         Create account-level features from transaction-level features using vectorized operations.
+        Including all 10 histogram bins as separate features.
         """
         # Get fraud probability predictions
-        y_pred_fraud = self.model.predict_proba(x)[:, 0]
+        y_pred_fraud = self.model.predict_proba(x)[:, 1]
         
         # Create DataFrame with AccountID and fraud probability
         pred_df = pd.DataFrame({
@@ -22,7 +23,7 @@ class ProbaTrain:
             "FraudProb": y_pred_fraud
         })
         
-        # Calculate all features at once using pandas aggregation
+        # First calculate standard aggregations
         account_features = pred_df.groupby("AccountID")["FraudProb"].agg([
             ("mean", "mean"),
             ("std", "std"),
@@ -32,14 +33,28 @@ class ProbaTrain:
             ("count", "size")
         ]).reset_index()
         
+        # # Calculate histograms for each account ID
+        # hist_dict = {}
+        # for account_id, group in pred_df.groupby("AccountID"):
+        #     hist, _ = np.histogram(group["FraudProb"], bins=10, range=(0, 1))
+        #     hist_dict[account_id] = hist
+        
+        # # Convert histogram data to DataFrame
+        # hist_df = pd.DataFrame.from_dict(hist_dict, orient='index')
+        # hist_df.columns = [f'hist_bin_{i}' for i in range(10)]
+        # hist_df.index.name = 'AccountID'
+        # hist_df = hist_df.reset_index()
+        
+        # # Merge standard aggregations with histograms
+        # account_features = pd.merge(account_features, hist_df, on="AccountID", how="left")
+        
         # Merge with skeleton to ensure proper order and handle missing accounts
-        # Left join to keep all skeleton account IDs
         result = pd.merge(
             skeleton[["AccountID"]].drop_duplicates(), 
             account_features,
             on="AccountID", 
             how="left"
-        ).fillna(-1)  # Fill NaN values with 0 for accounts with no transactions
+        ).fillna(-1)  # Fill missing values with -1
         
         # Convert to numpy array excluding the AccountID column
         output_array = result.iloc[:, 1:].values
