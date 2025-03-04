@@ -1,0 +1,44 @@
+2025-03-04 12:31:55,163 - INFO - FTSET: .ver01
+2025-03-04 12:31:55,163 - INFO - TRAIN_X_PATH: task/train_set/x_train.ver01.parquet
+2025-03-04 12:31:55,163 - INFO - TRAIN_Y_PATH: task/train_set/y_train.ver01.parquet
+2025-03-04 12:31:55,163 - INFO - VAL_X_PATH: task/val_set/x_val.ver01.parquet
+2025-03-04 12:31:55,163 - INFO - VAL_Y_PATH: task/val_set/y_val.ver01.parquet
+2025-03-04 12:31:55,163 - INFO - TEST_X_PATH: task/test_set/x_test.ver01.parquet
+2025-03-04 12:31:55,163 - INFO - TEST_OUTPUT_PATH: task/test_set/y_test.ver01.parquet
+2025-03-04 12:31:55,163 - INFO - Starting evaluation...
+2025-03-04 12:31:55,255 - INFO - Imported Model from module models.rf
+2025-03-04 12:31:55,255 - INFO - Loading training data from task/train_set/x_train.ver01.parquet and task/train_set/y_train.ver01.parquet
+2025-03-04 12:31:55,707 - INFO - Training data: 1674104 samples, 36 features
+2025-03-04 12:31:55,707 - INFO - Model hyperparameters: {'bootstrap': True, 'ccp_alpha': 0.0, 'class_weight': None, 'criterion': 'gini', 'max_depth': None, 'max_features': 'sqrt', 'max_leaf_nodes': None, 'max_samples': None, 'min_impurity_decrease': 0.0, 'min_samples_leaf': 1, 'min_samples_split': 2, 'min_weight_fraction_leaf': 0.0, 'monotonic_cst': None, 'n_estimators': 100, 'n_jobs': -1, 'oob_score': False, 'random_state': 42, 'verbose': 0, 'warm_start': False}
+2025-03-04 12:31:55,707 - INFO - Training model...
+2025-03-04 12:33:41,618 - INFO - Model training completed. Took: 0:01:45.910635 min
+2025-03-04 12:33:42,791 - INFO - Loading validation data from task/val_set/x_val.ver01.parquet and task/val_set/y_val.ver01.parquet
+2025-03-04 12:33:43,394 - INFO - Validation data: 1792506 samples, 36 features
+2025-03-04 12:33:43,394 - INFO - Predicting on validation set...
+2025-03-04 12:33:49,456 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.88      0.99      0.93   1565633
+           1       0.52      0.04      0.08    226873
+
+    accuracy                           0.87   1792506
+   macro avg       0.70      0.52      0.51   1792506
+weighted avg       0.83      0.87      0.82   1792506
+
+2025-03-04 12:33:49,527 - INFO - Threshold: 0.009868311954348142, Selected: 13.00%
+2025-03-04 12:33:49,532 - INFO - Classification Report **Per Account** on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.94      0.95      0.94      9588
+           1       0.63      0.62      0.63      1472
+
+    accuracy                           0.90     11060
+   macro avg       0.79      0.78      0.79     11060
+weighted avg       0.90      0.90      0.90     11060
+
+2025-03-04 12:33:49,532 - INFO - Loading test data from task/test_set/x_test.ver01.parquet
+2025-03-04 12:33:49,687 - INFO - Predicting on test set...
+2025-03-04 12:33:55,906 - INFO - Test predictions also written to logs/2025.03.04_12:31:55_models.rf_test_transaction.csv
+2025-03-04 12:33:55,971 - INFO - Threshold: 0.006626945880428727, Selected: 13.01%
+2025-03-04 12:33:55,978 - INFO - Test account id predictions also written to logs/2025.03.04_12:31:55_models.rf_test.csv
+2025-03-04 12:33:55,978 - INFO - Evaluation complete.
