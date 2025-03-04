@@ -9,12 +9,12 @@ from sklearn.metrics import classification_report
 # Global static path values
 FTSET = ''
 FTSET = '.ver01'
-TRAIN_X_PATH = "task/train_set/x_train{FTSET}.csv"
-TRAIN_Y_PATH = "task/train_set/y_train{FTSET}.csv"
-VAL_X_PATH   = "task/val_set/x_val{FTSET}.csv"
-VAL_Y_PATH   = "task/val_set/y_val{FTSET}.csv"
-TEST_X_PATH  = "task/test_set/x_test{FTSET}.csv"
-TEST_OUTPUT_PATH = "task/test_set/y_test{FTSET}.csv"
+TRAIN_X_PATH = f"task/train_set/x_train{FTSET}.parquet"
+TRAIN_Y_PATH = f"task/train_set/y_train{FTSET}.parquet"
+VAL_X_PATH   = f"task/val_set/x_val{FTSET}.parquet"
+VAL_Y_PATH   = f"task/val_set/y_val{FTSET}.parquet"
+TEST_X_PATH  = f"task/test_set/x_test{FTSET}.parquet"
+TEST_OUTPUT_PATH = f"task/test_set/y_test{FTSET}.parquet"
 SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
@@ -27,7 +27,23 @@ def transaction_to_accountid(df, col='Fraudster', method='threshold'):
     if method == 'threshold':
         # threshold based
         grp = df.groupby('AccountID')[col].mean()
-        threshold = grp.quantile(0.85)  # Select top 15%
+        threshold = grp.quantile(0.85)  # Initial threshold for top 15%
+        
+        # Check what percentage of accounts would be selected
+        selected_percentage = (grp >= threshold).mean() * 100
+        
+        # If too many accounts would be selected (e.g., all or nearly all)
+        if selected_percentage > 20:  # If more than 20% would be selected
+            # Find the threshold that selects closest to but not more than 15%
+            sorted_vals = sorted(grp.unique(), reverse=True)
+            target_count = int(len(grp) * 0.15)
+            
+            for val in sorted_vals:
+                if (grp >= val).sum() <= target_count:
+                    threshold = val
+                    break
+        
+        # Apply the threshold
         grp = (grp >= threshold).astype(int).reset_index()
         return grp
     
@@ -107,8 +123,8 @@ def main(model_module):
 
     # --- Load training data ---
     logger.info(f"Loading training data from {TRAIN_X_PATH} and {TRAIN_Y_PATH}")
-    x_train = pd.read_csv(TRAIN_X_PATH, compression='gzip')
-    y_train = pd.read_csv(TRAIN_Y_PATH, compression='infer')
+    x_train = pd.read_parquet(TRAIN_X_PATH)
+    y_train = pd.read_parquet(TRAIN_Y_PATH)
     # Merge training sets on AccountID
     train = pd.merge(x_train, y_train, on="AccountID")
     # Features: drop AccountID and Fraudster.
@@ -118,6 +134,7 @@ def main(model_module):
 
     # --- Initialize and train model ---
     model = Model()
+    logger.info(f"Model hyperparameters: {model.log_params()}")
     cur_time = datetime.datetime.now()
     logger.info("Training model...")
     model.fit(X_train, y_train)
@@ -126,8 +143,8 @@ def main(model_module):
 
     # --- Load validation data and evaluate ---
     logger.info(f"Loading validation data from {VAL_X_PATH} and {VAL_Y_PATH}")
-    x_val_df = pd.read_csv(VAL_X_PATH, compression='gzip')
-    y_val_df = pd.read_csv(VAL_Y_PATH, compression='infer')
+    x_val_df = pd.read_parquet(VAL_X_PATH)
+    y_val_df = pd.read_parquet(VAL_Y_PATH)
     val = pd.merge(x_val_df, y_val_df, on="AccountID")
     X_val = val.drop(columns=["Fraudster"])
     y_val = val["Fraudster"]
@@ -148,8 +165,8 @@ def main(model_module):
 
     # --- Predict on test set and output predictions ---
     logger.info(f"Loading test data from {TEST_X_PATH}")
-    x_test = pd.read_csv(TEST_X_PATH, compression='gzip')
-    y_test_df = pd.read_csv(SKELETON, compression='infer')
+    x_test = pd.read_parquet(TEST_X_PATH)
+    y_test_df = pd.read_csv(SKELETON)
     # Preserve AccountID for output.
     test_ids = x_test["AccountID"]
     X_test = x_test

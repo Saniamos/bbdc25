@@ -6,10 +6,12 @@ import datetime
 import logging
 
 # Global static path values
-TRAIN_X_PATHS = ["task/train_set/x_train.csv", "task/val_set/x_val.csv", "task/kaggle_set/x_kaggle.csv"]
-TRAIN_Y_PATHS = ["task/train_set/y_train.csv", "task/val_set/y_val.csv", "task/kaggle_set/y_kaggle.csv"]
-TEST_X_PATH  = "task/test_set/x_test.csv"
-TEST_OUTPUT_PATH = "task/test_set/y_test.csv"
+FTSET = ''
+FTSET = '.ver01'
+TRAIN_X_PATHS = [f"task/train_set/x_train{FTSET}.parquet", f"task/val_set/x_val{FTSET}.parquet", f"task/kaggle_set/x_kaggle{FTSET}.parquet"]
+TRAIN_Y_PATHS = [f"task/train_set/y_train{FTSET}.parquet", f"task/val_set/y_val{FTSET}.parquet", f"task/kaggle_set/y_kaggle{FTSET}.parquet"]
+TEST_X_PATH  = f"task/test_set/x_test{FTSET}.parquet"
+TEST_OUTPUT_PATH = f"task/test_set/y_test{FTSET}.parquet"
 SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
@@ -91,8 +93,8 @@ def main(model_module):
     for x_path, y_path in zip(TRAIN_X_PATHS, TRAIN_Y_PATHS):
         logger.info(f"Loading data from {x_path} and {y_path}")
         try:
-            x_data = pd.read_csv(x_path, compression='gzip')
-            y_data = pd.read_csv(y_path, compression='infer')
+            x_data = pd.read_parquet(x_path)
+            y_data = pd.read_parquet(y_path)
             # Merge sets on AccountID
             dataset = pd.merge(x_data, y_data, on="AccountID")
             combined.append(dataset)
@@ -117,7 +119,7 @@ def main(model_module):
 
     # --- Predict on test set and output predictions ---
     logger.info(f"Loading test data from {TEST_X_PATH}")
-    x_test = pd.read_csv(TEST_X_PATH, compression='gzip')
+    x_test = pd.read_parquet(TEST_X_PATH)
     y_test_df = pd.read_csv(SKELETON, compression='infer')
     # Preserve AccountID for output.
     test_ids = x_test["AccountID"]

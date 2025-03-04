@@ -1,0 +1,42 @@
+2025-03-04 10:33:33,099 - INFO - FTSET: .ver01
+2025-03-04 10:33:33,099 - INFO - TRAIN_X_PATH: task/train_set/x_train.ver01.parquet
+2025-03-04 10:33:33,099 - INFO - TRAIN_Y_PATH: task/train_set/y_train.ver01.parquet
+2025-03-04 10:33:33,099 - INFO - VAL_X_PATH: task/val_set/x_val.ver01.parquet
+2025-03-04 10:33:33,099 - INFO - VAL_Y_PATH: task/val_set/y_val.ver01.parquet
+2025-03-04 10:33:33,099 - INFO - TEST_X_PATH: task/test_set/x_test.ver01.parquet
+2025-03-04 10:33:33,099 - INFO - TEST_OUTPUT_PATH: task/test_set/y_test.ver01.parquet
+2025-03-04 10:33:33,099 - INFO - Starting evaluation...
+2025-03-04 10:33:33,175 - INFO - Imported Model from module models.rf_precision
+2025-03-04 10:33:33,175 - INFO - Loading training data from task/train_set/x_train.ver01.parquet and task/train_set/y_train.ver01.parquet
+2025-03-04 10:33:33,707 - INFO - Training data: 1674104 samples, 36 features
+2025-03-04 10:33:33,710 - INFO - Model hyperparameters: {'cv': 4, 'estimator__bootstrap': True, 'estimator__ccp_alpha': 0.0, 'estimator__class_weight': None, 'estimator__criterion': 'gini', 'estimator__max_depth': None, 'estimator__max_features': 'sqrt', 'estimator__max_leaf_nodes': None, 'estimator__max_samples': None, 'estimator__min_impurity_decrease': 0.0, 'estimator__min_samples_leaf': 1, 'estimator__min_samples_split': 2, 'estimator__min_weight_fraction_leaf': 0.0, 'estimator__monotonic_cst': None, 'estimator__n_estimators': 100, 'estimator__n_jobs': -1, 'estimator__oob_score': False, 'estimator__random_state': 42, 'estimator__verbose': 0, 'estimator__warm_start': False, 'estimator': RandomForestClassifier(n_jobs=-1, random_state=42), 'n_jobs': None, 'random_state': None, 'refit': True, 'response_method': 'auto', 'scoring': 'precision', 'store_cv_results': False, 'thresholds': 100}
+2025-03-04 10:33:33,710 - INFO - Training model...
+2025-03-04 10:40:32,433 - INFO - Model training completed. Took: 0:06:58.722611 min
+2025-03-04 10:40:33,555 - INFO - Loading validation data from task/val_set/x_val.ver01.parquet and task/val_set/y_val.ver01.parquet
+2025-03-04 10:40:34,256 - INFO - Validation data: 1792506 samples, 36 features
+2025-03-04 10:40:34,256 - INFO - Predicting on validation set...
+2025-03-04 10:40:39,359 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.87      1.00      0.93   1565633
+           1       1.00      0.00      0.01    226873
+
+    accuracy                           0.87   1792506
+   macro avg       0.94      0.50      0.47   1792506
+weighted avg       0.89      0.87      0.82   1792506
+
+2025-03-04 10:40:39,445 - INFO - Classification Report **Per Account** on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.00      0.00      0.00      9588
+           1       0.13      1.00      0.23      1472
+
+    accuracy                           0.13     11060
+   macro avg       0.07      0.50      0.12     11060
+weighted avg       0.02      0.13      0.03     11060
+
+2025-03-04 10:40:39,445 - INFO - Loading test data from task/test_set/x_test.ver01.parquet
+2025-03-04 10:40:39,677 - INFO - Predicting on test set...
+2025-03-04 10:40:44,474 - INFO - Test predictions also written to logs/2025.03.04_10:33:33_models.rf_precision_test_transaction.csv
+2025-03-04 10:40:44,547 - INFO - Test account id predictions also written to logs/2025.03.04_10:33:33_models.rf_precision_test.csv
+2025-03-04 10:40:44,547 - INFO - Evaluation complete.

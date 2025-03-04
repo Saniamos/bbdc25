@@ -1,12 +1,13 @@
 import pickle
-from models.features.simple_remove import Features
-from sklearn.dummy import DummyClassifier
+
+from models.features.simple_encode import Features
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import TunedThresholdClassifierCV
 
 class Model:
     def __init__(self):
-        # Initialize the dummy classifier with a fixed random state for reproducibility.
-        # Using 'stratified' strategy which generates predictions based on training set's class distribution
-        self.clf = DummyClassifier(strategy='stratified', random_state=42)
+        # Initialize the random forest classifier with a fixed random state for reproducibility.
+        self.clf = TunedThresholdClassifierCV(RandomForestClassifier(random_state=42, n_jobs=-1), scoring="precision", cv=0.8)
         self.fts = Features()
 
     def fit(self, X, y):

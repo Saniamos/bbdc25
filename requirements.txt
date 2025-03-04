@@ -2,6 +2,7 @@ numpy
 pandas
 seaborn
 matplotlib
+fastparquet
 
 click
 

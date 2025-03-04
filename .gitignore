@@ -182,4 +182,5 @@ task_orig/test_set/
 task_orig/val_set/
 
 *.csv
+*.parquet
 *.pkl

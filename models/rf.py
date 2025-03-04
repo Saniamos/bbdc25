@@ -18,6 +18,10 @@ class Model:
         X = self.fts._predict_preprocess(X)
         return self.clf.predict(X)
     
+    def log_params(self):
+        """Log the hyperparameters of the model."""
+        return self.clf.get_params()
+    
     def save(self, path):
         """Save the model to the given path."""
         with open(path, "wb") as f:

@@ -1,0 +1,41 @@
+2025-03-04 10:20:55,201 - INFO - FTSET: .ver01
+2025-03-04 10:20:55,201 - INFO - TRAIN_X_PATH: task/train_set/x_train.ver01.parquet
+2025-03-04 10:20:55,201 - INFO - TRAIN_Y_PATH: task/train_set/y_train.ver01.parquet
+2025-03-04 10:20:55,201 - INFO - VAL_X_PATH: task/val_set/x_val.ver01.parquet
+2025-03-04 10:20:55,201 - INFO - VAL_Y_PATH: task/val_set/y_val.ver01.parquet
+2025-03-04 10:20:55,201 - INFO - TEST_X_PATH: task/test_set/x_test.ver01.parquet
+2025-03-04 10:20:55,201 - INFO - TEST_OUTPUT_PATH: task/test_set/y_test.ver01.parquet
+2025-03-04 10:20:55,201 - INFO - Starting evaluation...
+2025-03-04 10:20:55,530 - INFO - Imported Model from module models.brf
+2025-03-04 10:20:55,530 - INFO - Loading training data from task/train_set/x_train.ver01.parquet and task/train_set/y_train.ver01.parquet
+2025-03-04 10:20:57,064 - INFO - Training data: 1674104 samples, 36 features
+2025-03-04 10:20:57,070 - INFO - Training model...
+2025-03-04 10:21:43,766 - INFO - Model training completed. Took: 0:00:46.696098 min
+2025-03-04 10:21:45,804 - INFO - Loading validation data from task/val_set/x_val.ver01.parquet and task/val_set/y_val.ver01.parquet
+2025-03-04 10:21:46,698 - INFO - Validation data: 1792506 samples, 36 features
+2025-03-04 10:21:46,699 - INFO - Predicting on validation set...
+2025-03-04 10:21:52,479 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.89      0.93      0.91   1565633
+           1       0.32      0.22      0.26    226873
+
+    accuracy                           0.84   1792506
+   macro avg       0.61      0.58      0.59   1792506
+weighted avg       0.82      0.84      0.83   1792506
+
+2025-03-04 10:21:52,564 - INFO - Classification Report **Per Account** on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.92      0.90      0.91      9588
+           1       0.41      0.46      0.44      1472
+
+    accuracy                           0.84     11060
+   macro avg       0.66      0.68      0.67     11060
+weighted avg       0.85      0.84      0.84     11060
+
+2025-03-04 10:21:52,564 - INFO - Loading test data from task/test_set/x_test.ver01.parquet
+2025-03-04 10:21:52,829 - INFO - Predicting on test set...
+2025-03-04 10:21:57,515 - INFO - Test predictions also written to logs/2025.03.04_10:20:55_models.brf_test_transaction.csv
+2025-03-04 10:21:57,589 - INFO - Test account id predictions also written to logs/2025.03.04_10:20:55_models.brf_test.csv
+2025-03-04 10:21:57,589 - INFO - Evaluation complete.

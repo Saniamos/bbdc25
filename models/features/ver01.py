@@ -1,81 +1,82 @@
 import datetime
-from sklearn.calibration import LabelEncoder
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
 
 class Features:
     def __init__(self):
         self.action_encoder = LabelEncoder()
         self.external_type_encoder = LabelEncoder()
+        self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
+
+    def _create_action_counts(self, X, group_cols):
+        """Helper method to create action count features efficiently."""
+        # First, create a dictionary to track all counts we need
+        result_dict = {}
+        
+        # Total count of actions per group
+        suffix = '' if len(group_cols) == 1 else 'Per' + group_cols[-1].title()
+        
+        # Add total count feature
+        result_dict[f'NumActions{suffix}'] = X.groupby(group_cols)['Action'].transform('count')
+        
+        # Create counts for each action type in a more efficient way
+        for action in self.action_types:
+            # Create a masked dataframe with 1s where action matches
+            mask = (X['Action'] == action).astype(int)
+            # Use proper groupby with column names and cumsum
+            result_dict[f'Num{action.title().replace("_", "")}{suffix}'] = mask.groupby([X[col] for col in group_cols]).cumsum().values
+        
+        return result_dict
 
     def extract(self, X):
         """Extract features from the input data."""
+        # Create a copy to avoid modifying the original dataframe
+        # X = X.copy()
         
-        # some more specific dates
+        # Time features - vectorized operations
         X['ToD'] = X['Hour'] % 24
-        X['Day'] = ((X['Hour'] - X['ToD']) // 24)
+        X['Day'] = (X['Hour'] - X['ToD']) // 24
         X['DoW'] = X['Day'] % 7
-
-        # some stats
-        X['PercentageOfBalance'] = X['Amount'] / X['OldBalance']
+        
+        # Basic stats - vectorized operations
+        # Avoid division by zero
+        X['PercentageOfBalance'] = np.where(X['OldBalance'] > 0, 
+                                           X['Amount'] / X['OldBalance'], 
+                                           0)
+        
+        # Group-based statistics - done once
         X['MeanTransferAmount'] = X.groupby('AccountID')['Amount'].transform('mean')
         X['MeanTransferCumSum'] = X.groupby('AccountID')['Amount'].transform('cumsum')
-
-        # difference to mean transfer amount for account per transaction
         X['MeanTransferAmountDifference'] = X['Amount'] - X['MeanTransferAmount']
-        # number of different external accounts for account per transaction
-        X['NumExternalAccounts'] = X.groupby('AccountID')['External'].transform('nunique')
-        # number of different external types for account per transaction
-        X['NumExternalTypes'] = X.groupby('AccountID')['External_Type'].transform('nunique')
-
-
-        # number of actions for account per transaction
-        X['NumActions'] = X.groupby('AccountID')['Action'].transform('count')
-        # number of cash ins for account per transaction
-        X['NumCashIns'] = X.groupby('AccountID')['Action'].transform(lambda x: (x == 'CASH_IN').cumsum())
-        # number of cash outs for account per transaction
-        X['NumCashOuts'] = X.groupby('AccountID')['Action'].transform(lambda x: (x == 'CASH_OUT').cumsum())
-        # number of DEBIT for account per transaction
-        X['NumDebits'] = X.groupby('AccountID')['Action'].transform(lambda x: (x == 'DEBIT').cumsum())
-        # number of PAYMENT for account per transaction
-        X['NumPayments'] = X.groupby('AccountID')['Action'].transform(lambda x: (x == 'PAYMENT').cumsum())
-        # number of TRANSFER for account per transaction
-        X['NumTransfers'] = X.groupby('AccountID')['Action'].transform(lambda x: (x == 'TRANSFER').cumsum())
-
-
-        # number of actions for account per transaction per day
-        X['NumActionsPerDay'] = X.groupby(['AccountID', 'Day'])['Action'].transform('count')
-        # number of cash ins for account per transaction per day
-        X['NumCashInsPerDay'] = X.groupby(['AccountID', 'Day'])['Action'].transform(lambda x: (x == 'CASH_IN').cumsum())
-        # number of cash outs for account per transaction per day
-        X['NumCashOutsPerDay'] = X.groupby(['AccountID', 'Day'])['Action'].transform(lambda x: (x == 'CASH_OUT').cumsum())
-        # number of DEBIT for account per transaction per day
-        X['NumDebitsPerDay'] = X.groupby(['AccountID', 'Day'])['Action'].transform(lambda x: (x == 'DEBIT').cumsum())
-        # number of PAYMENT for account per transaction per day
-        X['NumPaymentsPerDay'] = X.groupby(['AccountID', 'Day'])['Action'].transform(lambda x: (x == 'PAYMENT').cumsum())
-        # number of TRANSFER for account per transaction per day
-        X['NumTransfersPerDay'] = X.groupby(['AccountID', 'Day'])['Action'].transform(lambda x: (x == 'TRANSFER').cumsum())
         
-
-        # number of actions for account per transaction per hour
-        X['NumActionsPerHour'] = X.groupby(['AccountID', 'Hour'])['Action'].transform('count')
-        # number of cash ins for account per transaction per hour
-        X['NumCashInsPerHour'] = X.groupby(['AccountID', 'Hour'])['Action'].transform(lambda x: (x == 'CASH_IN').cumsum())
-        # number of cash outs for account per transaction per hour
-        X['NumCashOutsPerHour'] = X.groupby(['AccountID', 'Hour'])['Action'].transform(lambda x: (x == 'CASH_OUT').cumsum())
-        # number of DEBIT for account per transaction per hour
-        X['NumDebitsPerHour'] = X.groupby(['AccountID', 'Hour'])['Action'].transform(lambda x: (x == 'DEBIT').cumsum())
-        # number of PAYMENT for account per transaction per hour
-        X['NumPaymentsPerHour'] = X.groupby(['AccountID', 'Hour'])['Action'].transform(lambda x: (x == 'PAYMENT').cumsum())
-        # number of TRANSFER for account per transaction per hour
-        X['NumTransfersPerHour'] = X.groupby(['AccountID', 'Hour'])['Action'].transform(lambda x: (x == 'TRANSFER').cumsum())
+        # External account metrics
+        X['NumExternalAccounts'] = X.groupby('AccountID')['External'].transform('nunique')
+        X['NumExternalTypes'] = X.groupby('AccountID')['External_Type'].transform('nunique')
+        
+        # Create action counts efficiently using helper method
+        # By AccountID
+        counts_by_account = self._create_action_counts(X, ['AccountID'])
+        for col, values in counts_by_account.items():
+            X[col] = values
+            
+        # By AccountID and Day
+        counts_by_day = self._create_action_counts(X, ['AccountID', 'Day'])
+        for col, values in counts_by_day.items():
+            X[col] = values
+            
+        # By AccountID and Hour
+        counts_by_hour = self._create_action_counts(X, ['AccountID', 'Hour'])
+        for col, values in counts_by_hour.items():
+            X[col] = values
         
         return X
 
     def _fit_preprocess(self, X):
         """Preprocess the input data."""
-
         X = self.extract(X)
 
-        # encoding
+        # encoding - done in place
         X['Action'] = self.action_encoder.fit_transform(X['Action'])
         X['External_Type'] = self.external_type_encoder.fit_transform(X['External_Type'])
 
@@ -85,7 +86,6 @@ class Features:
     
     def _predict_preprocess(self, X):
         """Preprocess the input data."""
-
         X = self.extract(X)
 
         # encoding
@@ -95,9 +95,6 @@ class Features:
         # drop columns
         X.drop(columns=["External", "AccountID"], inplace=True)
         return X
-    
-
-
 
 if __name__ == "__main__":
     import pandas as pd
@@ -115,4 +112,5 @@ if __name__ == "__main__":
     features = Features()
     X_val = features.extract(X_val)
     print(f"Preprocessing took: {datetime.datetime.now() - tnow}")
+    # X_val[-100:].to_csv("featuresNew.csv", index=False)
     print(X_val.tail())
