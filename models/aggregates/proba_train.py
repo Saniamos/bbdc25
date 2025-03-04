@@ -33,20 +33,20 @@ class ProbaTrain:
             ("count", "size")
         ]).reset_index()
         
-        # # Calculate histograms for each account ID
-        # hist_dict = {}
-        # for account_id, group in pred_df.groupby("AccountID"):
-        #     hist, _ = np.histogram(group["FraudProb"], bins=10, range=(0, 1))
-        #     hist_dict[account_id] = hist
+        # Calculate histograms for each account ID
+        hist_dict = {}
+        for account_id, group in pred_df.groupby("AccountID"):
+            hist, _ = np.histogram(group["FraudProb"], bins=10, range=(0, 1))
+            hist_dict[account_id] = hist
         
-        # # Convert histogram data to DataFrame
-        # hist_df = pd.DataFrame.from_dict(hist_dict, orient='index')
-        # hist_df.columns = [f'hist_bin_{i}' for i in range(10)]
-        # hist_df.index.name = 'AccountID'
-        # hist_df = hist_df.reset_index()
+        # Convert histogram data to DataFrame
+        hist_df = pd.DataFrame.from_dict(hist_dict, orient='index')
+        hist_df.columns = [f'hist_bin_{i}' for i in range(10)]
+        hist_df.index.name = 'AccountID'
+        hist_df = hist_df.reset_index()
         
-        # # Merge standard aggregations with histograms
-        # account_features = pd.merge(account_features, hist_df, on="AccountID", how="left")
+        # Merge standard aggregations with histograms
+        account_features = pd.merge(account_features, hist_df, on="AccountID", how="left")
         
         # Merge with skeleton to ensure proper order and handle missing accounts
         result = pd.merge(
