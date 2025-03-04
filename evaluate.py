@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report
 # Global static path values
 FTSET = ''
 FTSET = '.ver01'
+FTSET = '.ver02'
 TRAIN_X_PATH = f"task/train_set/x_train{FTSET}.parquet"
 TRAIN_Y_PATH = f"task/train_set/y_train{FTSET}.parquet"
 VAL_X_PATH   = f"task/val_set/x_val{FTSET}.parquet"
@@ -19,15 +20,20 @@ SKELETON = "task/professional_skeleton.csv"
 LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H:%M:%S")
 
-def transaction_to_accountid(df, col='Fraudster', method='threshold', logger=None):
+def transaction_to_accountid(df, col='Fraudster', method='threshold_sum', logger=None):
+    fraudster_percentage = 0.15
+
     if method == 'mean':
         # simple majority vote
         return df.groupby('AccountID')[col].mean().round().astype(int).reset_index()
     
-    if method == 'threshold':
+    if method == 'threshold' or method == 'threshold_sum':
         # threshold based
-        grp = df.groupby('AccountID')[col].mean()
-        threshold = grp.quantile(0.85)  # Initial threshold for top 15%
+        if method == 'threshold':
+            grp = df.groupby('AccountID')[col].mean()
+        else:
+            grp = df.groupby('AccountID')[col].sum()
+        threshold = grp.quantile(1 - fraudster_percentage)
         
         # Check what percentage of accounts would be selected
         selected_percentage = (grp >= threshold).mean() * 100
@@ -36,7 +42,7 @@ def transaction_to_accountid(df, col='Fraudster', method='threshold', logger=Non
         if selected_percentage > 20:  # If more than 20% would be selected
             # Find the threshold that selects closest to but not more than 15%
             sorted_vals = sorted(grp.unique(), reverse=True)
-            target_count = int(len(grp) * 0.15)
+            target_count = int(len(grp) * fraudster_percentage)
             
             for val in sorted_vals:
                 if (grp >= val).sum() <= target_count:
@@ -48,13 +54,6 @@ def transaction_to_accountid(df, col='Fraudster', method='threshold', logger=Non
         selected_percentage = (grp >= threshold).mean() * 100
         grp = (grp >= threshold).astype(int).reset_index()
         logger.info(f"Threshold: {threshold}, Selected: {selected_percentage:.2f}%")
-        return grp
-    
-    if method == 'threshold_sum':
-        # threshold based
-        grp = df.groupby('AccountID')[col].sum()
-        threshold = grp.quantile(0.85)  # Select top 15%
-        grp = (grp >= threshold).astype(int).reset_index()
         return grp
 
 # Set up logging
@@ -85,7 +84,7 @@ def setup_logger():
     return logger
 
 @click.command()
-@click.option('--model_module', default="models.rf_precision", required=True, help='Python module containing the Model class')
+@click.option('--model_module', default="models.brf", required=True, help='Python module containing the Model class')
 def main(model_module):
     """
     This script loads a Model from the given module, trains it on the training set,

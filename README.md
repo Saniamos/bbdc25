@@ -31,7 +31,14 @@
     -> tuning for precision can achieve 100% fraud transaction precision, but recall is low resulting in bad fraudster f1 -> tuning is not worth it atm
     -> adjusted cv split for less agressive optimization and adjusted aggregation method -> results are on par without precision tuning -> might consider to revisit in final models, but not atm
 - Ver01 feature set is better (over raw) in rf and brf: roughly doubles fraud precision (transaction) and is ~8 points better in macro f1, 20 in fraud f1 (account)
-- Ver02 feature set is 
+- Ver02 feature set is better (over v1)
+    - brf: 
+        - transaction: 2x fraud precision, 1.5x recall (ironically f1 almost identical)
+        - account: +20 points fraud f1, +10 points macro f1
+    - rf 
+        - transaction: fraud: 1.5x precision, 4x recall, 4x f1
+        - account: fraud f1: -3 points macro: identical (weirdly only 8% got selected -> because only one of their transactions got flagged and a lower threshold isn't possible)
+    => next: either consider better selection/aggregation method or try autopytorch
 
 ## Log:
 - read desrciption and added some thoughts
@@ -41,7 +48,7 @@
 - added features (mostly from the diss/chatgpt: transactional, some behavioural, some social -> could be more, no agent based)
 - re-ran models with v01 features -> pretty good results (see above)
 - added precision optimized rf -> results are not better but have higher risk
-- realized that the fraudster percentage is more like 13% (at least in train and val) -> does lead to worse results -> probably tune at the end
+- realized that the fraudster percentage is more like 13% (at least in train and val) -> does lead to worse results -> probably tune at the end (as f1 is harmonic mean between precision and recall)
 - added features v02
-- re-ran models with v02 features -> pretty good results (see above)
+- re-ran models with v02 features -> pretty good / on par results (see above)
 
