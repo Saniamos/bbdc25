@@ -277,12 +277,40 @@ def plot_fraudsters_by_external_type(transactions_df, fraud_df, output_path):
     plt.close()
     print(f"Saved fraudsters by external type plot to {output_path}")
 
+def plot_fraud_percentage_pie(fraud_df, output_path):
+    """
+    Create a pie chart showing the percentage breakdown of fraudsters vs non-fraudsters.
+    Includes actual numbers in the chart labels.
+    """
+    # Count fraudsters and non-fraudsters
+    counts = fraud_df["Fraudster"].value_counts().sort_index()
+    non_fraud_count = counts.get(0, 0)
+    fraud_count = counts.get(1, 0)
+    total = non_fraud_count + fraud_count
+    
+    # Calculate percentages
+    labels = [f'Non-fraud\n{non_fraud_count} ({non_fraud_count/total:.1%})', 
+              f'Fraud\n{fraud_count} ({fraud_count/total:.1%})']
+    sizes = [non_fraud_count, fraud_count]
+    
+    # Create pie chart
+    plt.figure(figsize=(8, 8))
+    plt.pie(sizes, labels=labels, autopct='', startangle=90,
+            colors=[sns.color_palette("pastel")[0], sns.color_palette("pastel")[1]],
+            wedgeprops={'edgecolor': 'black', 'linewidth': 1})
+    plt.axis('equal')  # Equal aspect ratio ensures the pie chart is circular
+    plt.title("Fraudster Distribution in Dataset")
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Saved fraud percentage pie chart to {output_path}")
+
 @click.command()
 @click.option('--transactions_path', default='/Users/yale/Repositories/bbdc25/task/train_set/x_train.csv', help='Path to the transactions CSV file')
 @click.option('--fraud_path', default=None, help='Optional path to the fraud label CSV file')
 @click.option('--val_name', default='x_val', help='Base filename for the output PNGs')
 def main(transactions_path, fraud_path, val_name):
-    transactions_df = pd.read_csv(transactions_path, compression='gzip')
+    transactions_df = pd.read_parquet(transactions_path)
     prefix = f"{val_name}_"
     
     # Generate plots that only require transactions data
@@ -295,14 +323,14 @@ def main(transactions_path, fraud_path, val_name):
     # Check if fraud data is provided before generating fraud-based plots
     # Inside your main() function, after the other fraud-based plots
     if fraud_path:
-        fraud_df = pd.read_csv(fraud_path)
+        fraud_df = pd.read_parquet(fraud_path)
+        plot_fraud_percentage_pie(fraud_df, output_path=f"plot/{prefix}_fraud_percentage_pie.png")
         plot_fraud_action_difference(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_action_difference.png")
         plot_fraud_percentage(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_percentage.png")
         plot_summed_money_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_summed_money_per_account.png")
         plot_transaction_traffic_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_transaction_traffic_per_account.png")
         plot_fraud_overdrafts(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_overdrafts.png")
         plot_unique_accounts_by_fraud(fraud_df, output_path=f"plot/{prefix}_unique_accounts_by_fraud.png")
-        # New plots:
         plot_transfer_counts_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_transfer_counts_per_account.png")
         plot_fraudsters_by_external_type(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraudsters_by_external_type.png")
     else:
