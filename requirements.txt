@@ -9,3 +9,5 @@ click
 scikit-learn
 imbalanced-learn
 xgboost
+autoPyTorch
+snapml

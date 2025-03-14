@@ -17,8 +17,8 @@ def get_external_type(x):
         return "other"
 
 @click.command()
-@click.option('--input_path', required=True, help='Path to the input CSV file')
-@click.option('--output_path', required=True, help='Path to write the processed CSV file')
+@click.option('--input_path', default="./task_orig/val_set/x_val.csv", required=True, help='Path to the input CSV file')
+@click.option('--output_path', default="./task_orig/val_set/y_val.csv", required=True, help='Path to write the processed CSV file')
 @click.option('--ft_module', required=False, default=None, help='Python module containing the Model class')
 def preprocess(input_path, output_path, ft_module):
     # Dynamically import the module containing the Model class.
@@ -34,6 +34,10 @@ def preprocess(input_path, output_path, ft_module):
     
     # Read the CSV file
     df = pd.read_csv(input_path)
+
+    if 'AccountID' in df.columns:
+        # filter out the non-fraud spammer in val set
+        df = df[df['AccountID'] != 'C5686050095']
     
     # Check if the "External" column is present
     if "External" in df.columns:

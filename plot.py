@@ -305,6 +305,28 @@ def plot_fraud_percentage_pie(fraud_df, output_path):
     plt.close()
     print(f"Saved fraud percentage pie chart to {output_path}")
 
+def plot_transactions_per_account(transactions_df, output_path):
+    """
+    Create a histogram showing the distribution of the number of transactions per account.
+    """
+    # Count transactions per account
+    tx_counts = transactions_df.groupby("AccountID").size()
+    
+    # Find account with most transactions
+    max_tx_account = tx_counts.idxmax()
+    max_tx_count = tx_counts.max()
+    print(f"Account with most transactions: {max_tx_account} (Count: {max_tx_count})")
+    
+    plt.figure(figsize=(8, 6))
+    sns.histplot(tx_counts, bins=30, kde=True)
+    plt.title("Distribution of Transaction Counts per Account")
+    plt.xlabel("Number of Transactions")
+    plt.ylabel("Frequency")
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Saved transactions per account histogram to {output_path}")
+
 @click.command()
 @click.option('--transactions_path', default='/Users/yale/Repositories/bbdc25/task/train_set/x_train.csv', help='Path to the transactions CSV file')
 @click.option('--fraud_path', default=None, help='Optional path to the fraud label CSV file')
@@ -319,7 +341,8 @@ def main(transactions_path, fraud_path, val_name):
     plot_unique_accounts(transactions_df, output_path=f"plot/{prefix}_unique_accounts.png")
     plot_overdrafts(transactions_df, output_path=f"plot/{prefix}_overdrafts.png")
     plot_transfer_hops(transactions_df, output_path=f"plot/{prefix}_transfer_hops.png")
-    
+    plot_transactions_per_account(transactions_df, output_path=f"plot/{prefix}_transactions_per_account.png")
+
     # Check if fraud data is provided before generating fraud-based plots
     # Inside your main() function, after the other fraud-based plots
     if fraud_path:
