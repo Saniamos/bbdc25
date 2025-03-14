@@ -4,6 +4,42 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from snapml import GraphFeaturePreprocessor
 
+# The following dictionary defines the configuration parameters of the Graph Feature Preprocessor
+
+tw = 24 * 31 # 5 days
+# tw = 24 * 7 # 5 days
+# tw = 1
+params = {
+    "num_threads": 12,             # number of software threads to be used (important for performance)
+    "time_window": tw,            # time window used if no pattern was specified
+    
+    "vertex_stats": True,         # produce vertex statistics
+    "vertex_stats_cols": [3],     # produce vertex statistics using the selected input columns
+    
+    # features: 0:fan,1:deg,2:ratio,3:avg,4:sum,5:min,6:max,7:median,8:var,9:skew,10:kurtosis
+    "vertex_stats_feats": [0, 1, 2, 3, 4, 8, 9, 10],  # fan,deg,ratio,avg,sum,var,skew,kurtosis
+    
+    # fan in/out parameters
+    "fan": True,
+    "fan_tw": tw,
+    
+    # in/out degree parameters
+    "degree": True,
+    "degree_tw": tw,
+    
+    # scatter gather parameters
+    "scatter-gather": True,
+    "scatter-gather_tw": tw,
+    
+    # temporal cycle parameters
+    "temp-cycle": True,
+    "temp-cycle_tw": tw,
+    
+    # length-constrained simple cycle parameters
+    "lc-cycle": True,
+    "lc-cycle_tw": tw,
+    "lc-cycle_len": int(tw/2),
+}
 
 class Features:
     def __init__(self):
@@ -11,6 +47,9 @@ class Features:
         self.external_type_encoder = LabelEncoder()
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
         self.graph_feature_preprocessor = GraphFeaturePreprocessor()
+        self.graph_feature_preprocessor.set_params(params)
+        # import json
+        # print("Graph feature preprocessor parameters: ", json.dumps(self.graph_feature_preprocessor.get_params(), indent=4))
 
     def _create_action_counts(self, X, result_df, group_cols):
         """Helper method to create action count features efficiently."""
@@ -96,6 +135,19 @@ class Features:
             if col not in result_df:
                 result_df[col] = X[col]
         
+        # fit graph feature preprocessor
+        idx = ~X['External'].isna() # only fit where money changed accounts
+        gfp_X = np.array([X[idx].index.values,
+                 LabelEncoder().fit_transform(X[idx]['AccountID']),
+                 LabelEncoder().fit_transform(X[idx]['External']),
+                 X[idx]['Hour']]).T
+        enriched = self.graph_feature_preprocessor.fit_transform(gfp_X)[:, 4:]
+        res = np.zeros((X.shape[0], enriched.shape[1]), dtype=np.float32)
+        res[idx] = enriched
+        enriched_col_names = [f"GFP_{i}" for i in range(enriched.shape[1])]
+        enriched_df = pd.DataFrame(res, columns=enriched_col_names, index=X.index)
+        result_df = pd.concat([result_df, enriched_df], axis=1)
+        
         return result_df
 
     def _fit_preprocess(self, X):
@@ -124,8 +176,8 @@ class Features:
 
 if __name__ == "__main__":
     import pandas as pd
-    VAL_X_PATH   = "/Users/yale/Repositories/bbdc25/task/val_set/x_val.parquet"
-    VAL_Y_PATH   = "/Users/yale/Repositories/bbdc25/task/val_set/y_val.parquet"
+    VAL_X_PATH   = "~/Repositories/bbdc25/task/val_set/x_val.parquet"
+    VAL_Y_PATH   = "~/Repositories/bbdc25/task/val_set/y_val.parquet"
 
     x_val_df = pd.read_parquet(VAL_X_PATH)
     y_val_df = pd.read_parquet(VAL_Y_PATH)

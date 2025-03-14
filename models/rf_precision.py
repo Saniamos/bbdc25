@@ -23,7 +23,7 @@ class Model:
     def predict_proba(self, X):
         """Predict probabilities for the given data."""
         X = self.fts._predict_preprocess(X)
-        return self.clf.predict_proba(X)
+        return self.clf.predict_proba(X)[:, 1]
     
     def refit(self, X, y):
         """Refit the model to the given data."""

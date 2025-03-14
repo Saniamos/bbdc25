@@ -33,7 +33,7 @@ class AutoPyTorchModel:
     
     def predict_proba(self, X):
         X_pred = self.fts._predict_preprocess(X)
-        return self.api.predict_proba(X_pred)
+        return self.api.predict_proba(X_pred)[:, 1]
     
     def refit(self, X, y):
         # """Refit the model to the given data."""

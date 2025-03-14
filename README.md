@@ -32,8 +32,10 @@
 
 ## Features and Sophisticated Models:
 - https://snapml.readthedocs.io/en/v1.15/graph_preprocessor.html
-- https://dl.acm.org/doi/pdf/10.1145/3677052.3698674
+    - https://dl.acm.org/doi/pdf/10.1145/3677052.3698674
+    - https://github.com/IBM/snapml-examples/blob/main/examples/graph_feature_preprocessor/graph_feature_preprocessor.ipynb
 - https://github.com/IBM/Multi-GNN
+    -> python main.py --data Small_HI --model pna --emlps
 
 ## Understandings:
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)

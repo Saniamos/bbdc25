@@ -6,7 +6,7 @@ def predict_and_aggregate(model, x_df, fraudster_percentage=0.13, logger=None):
     y_pred = model.predict_proba(x_df)
     out_df = pd.DataFrame({
         "AccountID": x_df["AccountID"],
-        "Fraudster": y_pred[:, 1]
+        "Fraudster": y_pred
     })
     grp = out_df.groupby('AccountID')["Fraudster"].mean()
     

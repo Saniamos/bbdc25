@@ -1,5 +1,10 @@
 from models.features.encode import Features
 import xgboost as xgb
+import numpy as np
+
+# Core idea is simple: no cash_in transactions are considered in the model.
+# This is because technically the cash_ins should are necessary for money laundering, but they are likely not the actual transcations we want to flag.
+# no clue if this is a good or bad idea, but will check the results and see if it makes sense. 
 
 class Model:
     def __init__(self):
@@ -9,18 +14,25 @@ class Model:
 
     def fit(self, X, y):
         """Fit the balanced random forest model to the training data."""
-        X = self.fts._fit_preprocess(X)
-        self.clf.fit(X, y)
+        idx = X['Action'] != 'CASH_IN'
+        X_prd = self.fts._fit_preprocess(X[idx])
+        self.clf.fit(X_prd, y[idx])
     
     def predict(self, X):
         """Predict labels for the given data."""
-        X = self.fts._predict_preprocess(X)
-        return self.clf.predict(X)
+        idx = X['Action'] != 'CASH_IN'
+        prd = np.zeros(X.shape[0])
+        X_prd = self.fts._predict_preprocess(X[idx])
+        prd[idx] = self.clf.predict(X_prd)
+        return prd
     
     def predict_proba(self, X):
         """Predict probabilities for the given data."""
-        X = self.fts._predict_preprocess(X)
-        return self.clf.predict_proba(X)[:, 1]
+        idx = X['Action'] != 'CASH_IN'
+        prd = np.zeros(X.shape[0])
+        X_prd = self.fts._predict_preprocess(X[idx])
+        prd[idx] = self.clf.predict_proba(X_prd)[:, 1]
+        return prd
     
     def refit(self, X, y):
         """Refit the model to the given data."""

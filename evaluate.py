@@ -16,8 +16,8 @@ TRAIN_X_PATH = f"task/train_set/x_train{FTSET}.parquet"
 TRAIN_Y_PATH = f"task/train_set/y_train{FTSET}.parquet"
 VAL_X_PATH   = f"task/val_set/x_val{FTSET}.parquet"
 VAL_Y_PATH   = f"task/val_set/y_val{FTSET}.parquet"
-KAGGLE_X_PATH = f"task/kaggle_set/x_kaggle{FTSET}.parquet"
-KAGGLE_Y_PATH = f"task/kaggle_set/y_kaggle{FTSET}.parquet"
+# KAGGLE_X_PATH = f"task/kaggle_set/x_kaggle{FTSET}.parquet"
+# KAGGLE_Y_PATH = f"task/kaggle_set/y_kaggle{FTSET}.parquet"
 TEST_X_PATH  = f"task/test_set/x_test{FTSET}.parquet"
 TEST_OUTPUT_PATH = f"task/test_set/y_test{FTSET}.parquet"
 SKELETON = "task/professional_skeleton.csv"
@@ -25,8 +25,10 @@ LOG_DIR = "logs"
 LOG_BASENAME = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
 # Combined paths for full retrain
-TRAIN_X_PATHS = [TRAIN_X_PATH, VAL_X_PATH, KAGGLE_X_PATH]
-TRAIN_Y_PATHS = [TRAIN_Y_PATH, VAL_Y_PATH, KAGGLE_Y_PATH]
+# TRAIN_X_PATHS = [TRAIN_X_PATH, VAL_X_PATH, KAGGLE_X_PATH]
+# TRAIN_Y_PATHS = [TRAIN_Y_PATH, VAL_Y_PATH, KAGGLE_Y_PATH]
+TRAIN_X_PATHS = [TRAIN_X_PATH, VAL_X_PATH]
+TRAIN_Y_PATHS = [TRAIN_Y_PATH, VAL_Y_PATH]
 
 def setup_logger():
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -243,7 +245,7 @@ def refit_model(model, X, y, logger, save_path=None):
     return model
 
 @click.command()
-@click.option('--model_module', default="models.xgboost", required=True, help='Python module containing the Model class')
+@click.option('--model_module', default="models.guess", required=True, help='Python module containing the Model class')
 @click.option('--retrain', is_flag=True, default=False, help='If set, retrain on all data after evaluation and predict test set')
 def main(model_module, retrain):
     """Main function with evaluation and optional full retrain"""

@@ -50,6 +50,11 @@ def preprocess(input_path, output_path, ft_module):
     
     # Ensure the output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Remove the output file if it already exists
+    if os.path.exists(output_path):
+        os.remove(output_path)
+        print(f"Removed existing file at {output_path}")
+    
     df.to_parquet(output_path, index=False)
     print(f"Processed file written to {output_path}")
 

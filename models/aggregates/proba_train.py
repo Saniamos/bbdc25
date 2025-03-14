@@ -14,7 +14,7 @@ class ProbaTrain:
         Create account-level features from transaction-level features using vectorized operations.
         """
         # Get fraud probability predictions
-        y_pred_fraud = self.model.predict_proba(x)[:, 1]
+        y_pred_fraud = self.model.predict_proba(x)
         
         # Create DataFrame with AccountID and fraud probability
         pred_df = pd.DataFrame({
@@ -73,7 +73,7 @@ class ProbaTrain:
 
     def predict(self, x, skeleton):
         x_features = self._create_account_features(x, skeleton=skeleton)   
-        prd = self.account_model.predict_proba(x_features)[:,1] # Get the probability of fraud
+        prd = self.account_model.predict_proba(x_features)[:,1] # as this is not from our models, but from the xgb model
         account_ids = skeleton["AccountID"].values
         
         # Calculate threshold using numpy's quantile
