@@ -4,9 +4,14 @@ seaborn
 matplotlib
 fastparquet
 
+networkx
+
 click
 
 scikit-learn
 imbalanced-learn
 xgboost
 snapml
+
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch

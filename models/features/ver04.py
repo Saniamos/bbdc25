@@ -4,12 +4,52 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from snapml import GraphFeaturePreprocessor
 
+# The following dictionary defines the configuration parameters of the Graph Feature Preprocessor
+
+# tw = 24 * 31 # 5 days
+# tw = 24 # 5 days
+tw = 5
+params = {
+    "num_threads": 10,             # number of software threads to be used (important for performance)
+    "time_window": tw,            # time window used if no pattern was specified
+    
+    "vertex_stats": True,         # produce vertex statistics
+    "vertex_stats_cols": [3],     # produce vertex statistics using the selected input columns
+    
+    # features: 0:fan,1:deg,2:ratio,3:avg,4:sum,5:min,6:max,7:median,8:var,9:skew,10:kurtosis
+    "vertex_stats_feats": [0, 1, 2, 3, 4, 8, 9, 10],  # fan,deg,ratio,avg,sum,var,skew,kurtosis
+    
+    # fan in/out parameters
+    "fan": True,
+    "fan_tw": tw,
+    
+    # in/out degree parameters
+    "degree": True,
+    "degree_tw": tw,
+    
+    # scatter gather parameters
+    "scatter-gather": True,
+    "scatter-gather_tw": tw,
+    
+    # temporal cycle parameters
+    "temp-cycle": True,
+    "temp-cycle_tw": tw,
+    
+    # length-constrained simple cycle parameters
+    "lc-cycle": False,
+    "lc-cycle_tw": tw,
+    "lc-cycle_len": int(tw/2),
+}
+
 class Features:
     def __init__(self):
         self.action_encoder = LabelEncoder()
         self.external_type_encoder = LabelEncoder()
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
         self.graph_feature_preprocessor = GraphFeaturePreprocessor()
+        # self.graph_feature_preprocessor.set_params(params)
+        # import json
+        # print("Graph feature preprocessor parameters: ", json.dumps(self.graph_feature_preprocessor.get_params(), indent=4))
 
     def _create_action_counts(self, X, result_df, group_cols):
         """Helper method to create action count features efficiently."""

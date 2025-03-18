@@ -172,6 +172,7 @@ cython_debug/
 
 
 venv/
+venv2/
 
 task/train_set/
 task/test_set/

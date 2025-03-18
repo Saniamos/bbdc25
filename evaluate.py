@@ -11,7 +11,7 @@ from models.aggregates.proba_threshold import predict_and_aggregate as predict_a
 from models.aggregates.proba_train import ProbaTrain
 
 # Global static path values
-FTSET = '.ver02'
+FTSET = '.ver03'
 TRAIN_X_PATH = f"task/train_set/x_train{FTSET}.parquet"
 TRAIN_Y_PATH = f"task/train_set/y_train{FTSET}.parquet"
 VAL_X_PATH   = f"task/val_set/x_val{FTSET}.parquet"
@@ -356,6 +356,6 @@ def main(model_module, retrain):
 
 if __name__ == "__main__":
     # example usage:
-    # python evaluate.py --model_module models.rf
-    # python evaluate.py --model_module models.rf --retrain
+    # python3 evaluate.py --model_module models.rf
+    # python3 evaluate.py --model_module models.rf --retrain
     main()
