@@ -11,43 +11,6 @@ class Features:
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
         self.graph_feature_preprocessor = GraphFeaturePreprocessor()
 
-    def _create_action_counts(self, X, result_df, group_cols):
-        """Helper method to create action count features efficiently."""
-        # Total count of actions per group
-        suffix = '' if len(group_cols) == 1 else 'Per' + group_cols[-1].title()
-        for x in ['Amount', 'OldBalance', 'NewBalance']:
-            X[f'{x}Exp'] = X[f'{x}'].copy()
-            X[f'{x}'] = np.ma.log(X[f'{x}'].to_numpy()).filled(0)
-        
-        # Pre-calculate groupby objects to avoid redundant work
-        grouped = X.groupby(group_cols)
-        
-        # Add total count feature - using more efficient operations
-        result_df[f'NumActions{suffix}'] = grouped['Action'].transform('count')
-        result_df[f'Amount{suffix}Cumsum'] = grouped['Amount'].transform('cumsum')
-        result_df[f'Amount{suffix}Std'] = grouped['Amount'].transform('std').fillna(0)
-        result_df[f'OldBalance{suffix}Std'] = grouped['OldBalance'].transform('std').fillna(0)
-        result_df[f'NewBalance{suffix}Std'] = grouped['NewBalance'].transform('std').fillna(0)
-        
-        # Process all action types efficiently
-        for action in self.action_types:
-            # Create mask as int8 to reduce memory usage
-            mask = (X['Action'] == action).astype('int8')
-            
-            # Cache X columns for group columns to reduce attribute access overhead
-            group_cols_data = [X[col].values for col in group_cols] if group_cols else []
-            
-            # Use proper groupby with optimized calculations
-            result_df[f'Num{action.title().replace("_", "")}{suffix}'] = mask.groupby(group_cols_data).cumsum().values
-            result_df[f'Num{action.title().replace("_", "")}{suffix}Sum'] = mask.groupby(group_cols_data).transform('sum').values
-            
-            # Calculate amount features in one step
-            masked_amount = mask * X['Amount']
-            result_df[f'{action.title().replace("_", "")}{suffix}AmountSum'] = masked_amount.groupby(group_cols_data).transform('sum').values
-            result_df[f'{action.title().replace("_", "")}{suffix}AmountStd'] = np.nan_to_num(masked_amount.groupby(group_cols_data).transform('std').values)
-        
-        return result_df
-
     def extract(self, X):
         """Extract features from the input data."""
         # Create a single result DataFrame to avoid multiple concatenations
@@ -63,36 +26,21 @@ class Features:
         X['Day'] = day_values
         
         result_df['DoW'] = result_df['Day'] % 7
-        
-        # Basic stats - vectorized operations
-        # Avoid division by zero
+
+         # Avoid division by zero
         result_df['PercentageOfBalance'] = np.divide(
             X['Amount'], X['OldBalance'], 
             out=np.zeros(len(X), dtype='float32'), 
             where=X['OldBalance'] > 0
         )
-        
-        # Group-based statistics - done once with cached groupby
-        account_grouped = X.groupby('AccountID')
-        result_df['MeanTransferAmount'] = account_grouped['Amount'].transform('mean')
-        result_df['MeanTransferAmountDifference'] = X['Amount'] - result_df['MeanTransferAmount']
-        
-        # External account metrics
-        result_df['NumExternalAccounts'] = account_grouped['External'].transform('nunique')
-        result_df['NumExternalTypes'] = account_grouped['External_Type'].transform('nunique')
-        
-        # Process external types more efficiently
+
         ext_types = X['External_Type'].unique()
         for external_type in sorted(map(str, ext_types)):
             mask = (X['External_Type'] == external_type).astype('int8')
             ext_grouped = mask.groupby(X['AccountID'].values)  # Use values for efficiency
             result_df[f'NumExternalAccounts{external_type}'] = ext_grouped.transform('sum').values
         
-        # Create action counts efficiently - reuse result_df to avoid extra memory
-        self._create_action_counts(X, result_df, ['AccountID'])
-        self._create_action_counts(X, result_df, ['AccountID', 'Day'])
-        self._create_action_counts(X, result_df, ['AccountID', 'Hour'])
-        
+                
         # Copy needed columns from X to result_df
         for col in X.columns:
             if col not in result_df:

@@ -20,9 +20,9 @@ class Features:
         # Add total count feature - using more efficient operations
         result_df[f'NumActions{suffix}'] = grouped['Action'].transform('count')
         result_df[f'Amount{suffix}Cumsum'] = grouped['Amount'].transform('cumsum')
-        result_df[f'Amount{suffix}Std'] = grouped['Amount'].transform('std')
-        result_df[f'OldBalance{suffix}Std'] = grouped['OldBalance'].transform('std')
-        result_df[f'NewBalance{suffix}Std'] = grouped['NewBalance'].transform('std')
+        result_df[f'Amount{suffix}Std'] = grouped['Amount'].transform('std').fillna(0)
+        result_df[f'OldBalance{suffix}Std'] = grouped['OldBalance'].transform('std').fillna(0)
+        result_df[f'NewBalance{suffix}Std'] = grouped['NewBalance'].transform('std').fillna(0)
         
         # Process all action types efficiently
         for action in self.action_types:
@@ -39,7 +39,7 @@ class Features:
             # Calculate amount features in one step
             masked_amount = mask * X['Amount']
             result_df[f'{action.title().replace("_", "")}{suffix}AmountSum'] = masked_amount.groupby(group_cols_data).transform('sum').values
-            result_df[f'{action.title().replace("_", "")}{suffix}AmountStd'] = masked_amount.groupby(group_cols_data).transform('std').values
+            result_df[f'{action.title().replace("_", "")}{suffix}AmountStd'] = np.nan_to_num(masked_amount.groupby(group_cols_data).transform('std').values)
         
         return result_df
 

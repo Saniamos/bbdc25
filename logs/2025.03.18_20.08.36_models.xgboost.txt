@@ -1,0 +1,102 @@
+2025-03-18 20:08:36,961 - INFO - FTSET: .ver05
+2025-03-18 20:08:36,961 - INFO - Full Retrain: False
+2025-03-18 20:08:36,961 - INFO - Model Module: models.xgboost
+2025-03-18 20:08:36,976 - INFO - Imported Model from module models.xgboost
+2025-03-18 20:08:36,976 - INFO - Loading training data from task/train_set/x_train.ver05.parquet and task/train_set/y_train.ver05.parquet
+2025-03-18 20:08:38,592 - INFO - Training data: 1674104 samples, 107 features
+2025-03-18 20:08:38,623 - INFO - Model hyperparameters: {'objective': 'binary:logistic', 'base_score': None, 'booster': None, 'callbacks': None, 'colsample_bylevel': None, 'colsample_bynode': None, 'colsample_bytree': None, 'device': None, 'early_stopping_rounds': None, 'enable_categorical': False, 'eval_metric': None, 'feature_types': None, 'feature_weights': None, 'gamma': None, 'grow_policy': None, 'importance_type': None, 'interaction_constraints': None, 'learning_rate': None, 'max_bin': None, 'max_cat_threshold': None, 'max_cat_to_onehot': None, 'max_delta_step': None, 'max_depth': None, 'max_leaves': None, 'min_child_weight': None, 'missing': nan, 'monotone_constraints': None, 'multi_strategy': None, 'n_estimators': None, 'n_jobs': None, 'num_parallel_tree': None, 'random_state': 42, 'reg_alpha': None, 'reg_lambda': None, 'sampling_method': None, 'scale_pos_weight': None, 'subsample': None, 'tree_method': None, 'validate_parameters': None, 'verbosity': None}
+2025-03-18 20:08:38,624 - INFO - Training model...
+2025-03-18 20:08:45,576 - INFO - Model training completed. Took: 0:00:06.952828
+2025-03-18 20:08:45,582 - INFO - Model saved to logs/2025.03.18_20.08.36_models.xgboost_model.pkl
+2025-03-18 20:08:45,583 - INFO - Loading validation data from task/val_set/x_val.ver05.parquet and task/val_set/y_val.ver05.parquet
+2025-03-18 20:08:46,996 - INFO - Validation data: 1704503 samples, 107 features
+2025-03-18 20:08:47,026 - INFO - Predicting on validation set...
+2025-03-18 20:08:48,519 - INFO - Classification Report on Validation Set:
+              precision    recall  f1-score   support
+
+           0       0.88      0.98      0.92   1477630
+           1       0.39      0.09      0.15    226873
+
+    accuracy                           0.86   1704503
+   macro avg       0.63      0.54      0.54   1704503
+weighted avg       0.81      0.86      0.82   1704503
+
+2025-03-18 20:08:48,519 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_threshold({'method': 'threshold'})
+2025-03-18 20:08:49,797 - INFO - Threshold: 0.007462686567164179, Selected: 15.02%
+2025-03-18 20:08:49,816 - INFO -               precision    recall  f1-score   support
+
+           0       0.94      0.92      0.93      9587
+           1       0.57      0.64      0.60      1472
+
+    accuracy                           0.89     11059
+   macro avg       0.75      0.78      0.77     11059
+weighted avg       0.89      0.89      0.89     11059
+
+2025-03-18 20:08:49,816 - INFO - --------------------------------------------------
+2025-03-18 20:08:49,838 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_proba({})
+2025-03-18 20:08:51,192 - INFO - Threshold: 0.26903998851776123, Selected: 12.00%
+2025-03-18 20:08:51,211 - INFO -               precision    recall  f1-score   support
+
+           0       0.91      0.93      0.92      9587
+           1       0.46      0.42      0.44      1472
+
+    accuracy                           0.86     11059
+   macro avg       0.69      0.67      0.68     11059
+weighted avg       0.85      0.86      0.85     11059
+
+2025-03-18 20:08:51,211 - INFO - --------------------------------------------------
+2025-03-18 20:08:51,235 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_threshold({'method': 'threshold_sum'})
+2025-03-18 20:08:52,487 - INFO - Threshold: 1.0, Selected: 16.72%
+2025-03-18 20:08:52,507 - INFO -               precision    recall  f1-score   support
+
+           0       0.96      0.92      0.94      9587
+           1       0.59      0.74      0.66      1472
+
+    accuracy                           0.90     11059
+   macro avg       0.77      0.83      0.80     11059
+weighted avg       0.91      0.90      0.90     11059
+
+2025-03-18 20:08:52,507 - INFO - --------------------------------------------------
+2025-03-18 20:08:52,534 - INFO - Classification Report **Per Account** on Validation Set:
+predict_and_aggregate_threshold({'method': 'mean'})
+2025-03-18 20:08:53,842 - INFO -               precision    recall  f1-score   support
+
+           0       0.89      0.99      0.93      9587
+           1       0.66      0.18      0.29      1472
+
+    accuracy                           0.88     11059
+   macro avg       0.77      0.58      0.61     11059
+weighted avg       0.86      0.88      0.85     11059
+
+2025-03-18 20:08:53,843 - INFO - --------------------------------------------------
+2025-03-18 20:08:53,875 - INFO - Classification Report **Per Account** on Validation Set with ProbaTrain
+2025-03-18 20:08:56,902 - INFO - NaN values in the final result: 0
+2025-03-18 20:08:56,904 - INFO - Account features shape: (11059, 16)
+2025-03-18 20:08:56,964 - INFO - Account model trained.
+2025-03-18 20:09:00,146 - INFO - NaN values in the final result: 0
+2025-03-18 20:09:00,147 - INFO - Account features shape: (11059, 16)
+2025-03-18 20:09:00,183 - INFO - Threshold: 0.22304169833660126, Selected: 12.00%
+2025-03-18 20:09:00,188 - INFO -               precision    recall  f1-score   support
+
+           0       0.95      0.97      0.96      9587
+           1       0.76      0.68      0.72      1472
+
+    accuracy                           0.93     11059
+   macro avg       0.85      0.82      0.84     11059
+weighted avg       0.93      0.93      0.93     11059
+
+2025-03-18 20:09:00,188 - INFO - --------------------------------------------------
+2025-03-18 20:09:00,366 - INFO - Loading test data from task/test_set/x_test.ver05.parquet
+2025-03-18 20:09:01,034 - INFO - Predicting on test set...
+2025-03-18 20:09:04,470 - INFO - Test predictions written to logs/2025.03.18_20.08.36_models.xgboost_test_transaction.csv
+2025-03-18 20:09:05,909 - INFO - Threshold: 0.002317969799984261, Selected: 15.00%
+2025-03-18 20:09:05,929 - INFO - Test account id predictions written to logs/2025.03.18_20.08.36_models.xgboost_test.csv
+2025-03-18 20:09:09,229 - INFO - NaN values in the final result: 0
+2025-03-18 20:09:09,230 - INFO - Account features shape: (11057, 16)
+2025-03-18 20:09:09,247 - INFO - Threshold: 0.08850958943367004, Selected: 12.00%
+2025-03-18 20:09:09,253 - INFO - Test account id predictions with ProbaTrain written to logs/2025.03.18_20.08.36_models.xgboost_test_proba_train.csv
+2025-03-18 20:09:09,283 - INFO - Standard evaluation complete.
+2025-03-18 20:09:09,283 - INFO - ===============================================

@@ -11,7 +11,7 @@ from models.aggregates.proba_threshold import predict_and_aggregate as predict_a
 from models.aggregates.proba_train import ProbaTrain
 
 # Global static path values
-FTSET = '.ver03'
+FTSET = '.ver05'
 TRAIN_X_PATH = f"task/train_set/x_train{FTSET}.parquet"
 TRAIN_Y_PATH = f"task/train_set/y_train{FTSET}.parquet"
 VAL_X_PATH   = f"task/val_set/x_val{FTSET}.parquet"

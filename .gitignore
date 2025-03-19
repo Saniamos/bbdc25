@@ -187,3 +187,6 @@ task_orig/val_set/
 *.pkl
 *.json
 !submissions.csv
+
+*.pt
+*.ckpt
