@@ -281,6 +281,10 @@ def load_train_test(ver):
     return load_datasets([f"~/Repositories/bbdc25/task/train_set/x_train.{ver}.parquet",
                           f"~/Repositories/bbdc25/task/test_set/x_test.{ver}.parquet"])
 
+def load_train_val(ver):
+    return load_datasets([f"~/Repositories/bbdc25/task/train_set/x_train.{ver}.parquet",
+                          f"~/Repositories/bbdc25/task/val_set/x_val.{ver}.parquet"])
+
 def load_all(ver):
     return load_datasets([f"~/Repositories/bbdc25/task/train_set/x_train.{ver}.parquet",
                           f"~/Repositories/bbdc25/task/val_set/x_val.{ver}.parquet",

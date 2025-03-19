@@ -92,16 +92,6 @@ class FraudBERTClassifier(pl.LightningModule):
             nn.Softmax(dim=1)
         )
         
-        # Instance variables for validation metrics
-        self.val_step_preds = []
-        self.val_step_probs = []
-        self.val_step_targets = []
-
-        if hasattr(torch, 'nn') and hasattr(torch.nn, 'functional') and hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
-            # Use Flash Attention when available
-            print("Flash Attention is available. Using for faster training.")
-            self.bert.config.use_flash_attention = True
-
     def forward(self, x, mask=None):
         """
         Args:
@@ -145,19 +135,13 @@ class FraudBERTClassifier(pl.LightningModule):
         # Forward pass
         logits = self(x, seq_mask)
         y = y.float()  # Ensure labels are float for loss functions
-        
-        # Calculate BCE loss
-        bce_loss = nn.BCEWithLogitsLoss()(logits.view(-1), y.view(-1))
-        
+    
         # Calculate F1 loss - use sigmoid to get probabilities before calculating F1 loss
-        f1_loss_val = f1_loss(y.view(-1), logits.view(-1))
-                
-        # Combined loss (giving more weight to optimizing F1 score)
-        loss = 0.5 * bce_loss + 2.0 * f1_loss_val
+        # loss = nn.BCEWithLogitsLoss()(logits.view(-1), y.view(-1))
+        loss = f1_loss(y.view(-1), logits.view(-1))
         
         # Log metrics - emphasizing F1-related metrics
         self.log("train_loss", loss, prog_bar=True, on_epoch=True)
-        self.log("train_f1_loss", f1_loss_val, prog_bar=True, on_epoch=True)
         
         return loss
     
@@ -171,58 +155,14 @@ class FraudBERTClassifier(pl.LightningModule):
         logits = self(x, seq_mask)
         y = y.float()
         
-        # Calculate BCE loss
-        bce_loss = nn.BCEWithLogitsLoss()(logits.view(-1), y.view(-1))
-        
-        # Get probabilities and predictions
-        probs = torch.sigmoid(logits)
-        preds = (probs > 0.5).float().detach()  # Use detach only for binary predictions
-        
         # Calculate F1 loss - use probabilities directly
-        f1_loss_val = f1_loss(y.view(-1), probs.view(-1))
-        
-        # Combined loss (matching the weighting used in training)
-        val_loss = 0.5 * bce_loss + 2.0 * f1_loss_val
+        # loss = nn.BCEWithLogitsLoss()(logits.view(-1), y.view(-1))
+        val_loss = f1_loss(y.view(-1), logits.view(-1))
         
         # Log metrics - emphasizing F1-related metrics
         self.log("val_loss", val_loss, prog_bar=True)
-        self.log("val_f1_loss", f1_loss_val, prog_bar=True)
-        
-        # Store outputs as instance attributes for use in on_validation_epoch_end
-        self.val_step_preds.append(preds)
-        self.val_step_probs.append(probs.detach())
-        self.val_step_targets.append(y)
         
         return {"val_loss": val_loss}
-    
-    def on_validation_epoch_start(self):
-        # Reset stored values at the beginning of each validation epoch
-        self.val_step_preds = []
-        self.val_step_probs = []
-        self.val_step_targets = []
-    
-    def on_validation_epoch_end(self):
-        # Combine predictions and targets from all batches
-        all_preds = torch.cat(self.val_step_preds).cpu().numpy()
-        all_probs = torch.cat(self.val_step_probs).cpu().numpy()
-        all_targets = torch.cat(self.val_step_targets).cpu().numpy()
-        
-        # Calculate and log detailed metrics
-        try:
-            # Calculate F1 score for fraud class (minority class)
-            # First get binary predictions using default threshold of 0.5
-            binary_preds = (all_probs > 0.5).astype(np.int32)
-            
-            # Calculate F1 score specifically for the fraud class (positive class)
-            # pos_label=1 ensures we focus on the fraud class (minority class)
-            f1_fraud = f1_score(all_targets, binary_preds, pos_label=1)
-            
-            # Log F1 score as our primary metric
-            self.log("val_f1_fraud", f1_fraud, prog_bar=True)
-            
-            print(f"Validation F1 Score (fraud class): {f1_fraud:.4f}")
-        except Exception as e:
-            print(f"Error calculating validation metrics: {e}")
     
     def configure_optimizers(self):
         # Only optimize classifier parameters if BERT is frozen

@@ -27,7 +27,7 @@ from train_bert_mlm import prep_hpsearch_dataloaders
 @click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
 
 # Training parameters
-@click.option("--batch_size", default=64, type=int, help="Batch size for training")
+@click.option("--batch_size", default=128, type=int, help="Batch size for training")
 @click.option("--num_train_epochs", default=10, type=int, help="Number of training epochs")
 @click.option("--val_every_epoch", default=3, type=int, help="Number of training epochs after which to run validation")
 @click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
@@ -82,19 +82,19 @@ def main(data_version, pretrained_model_path, output_dir, freeze_bert, continue_
     
     # Setup checkpointing - using F1 score as our only primary metric
     checkpoint_callback = ModelCheckpoint(
-        monitor='val_f1_fraud',
+        monitor='val_loss',
         dirpath=output_dir,
-        filename='fraud-bert-{epoch:02d}-{val_f1_fraud:.4f}',
+        filename='fraud-bert-{epoch:02d}-{val_loss:.4f}',
         save_top_k=3,
-        mode='max',  # F1 score should be maximized
+        mode='min',  # F1 score should be maximized
         save_weights_only=True
     )
     
     # Early stopping - using F1 score as our only primary metric
     early_stop_callback = EarlyStopping(
-        monitor='val_f1_fraud',
+        monitor='val_loss',
         patience=patience,
-        mode='max',  # F1 score should be maximized
+        mode='min',  # F1 score should be maximized
     )
     
     # Setup tensorboard logger

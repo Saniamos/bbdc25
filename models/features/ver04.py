@@ -24,15 +24,15 @@ params = {
     "fan_tw": tw,
     
     # in/out degree parameters
-    "degree": True,
+    "degree": False,
     "degree_tw": tw,
     
     # scatter gather parameters
-    "scatter-gather": True,
+    "scatter-gather": False,
     "scatter-gather_tw": tw,
     
     # temporal cycle parameters
-    "temp-cycle": True,
+    "temp-cycle": False,
     "temp-cycle_tw": tw,
     
     # length-constrained simple cycle parameters

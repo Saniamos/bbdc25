@@ -24,7 +24,19 @@
 
 - the documentation suggests there are no payments from merchants to customers (ie refunds) -> q auick search in the transactions also suggest, but does not confirm this
 
--> new aggregation method idea: use predict_proba of model select a subset of transactions (not sure if sorted by highest or similar, or just pad) and then use another model to predict if the account is fraudulent or not
+-> new aggregation method idea: use predict_proba of model select a subset of transactions (not sure if sorted by highest or similar, or just pad) and then use another model to predict if the account is fraudulent or not => not really better than the current method 
+
+Added new ssl and fraud classification methods, core idea is this: incorporate network info into each transaction, then group the transactions per account and classify directly if those are fraudulent or not -> should scale well (ie not per transaction but also not per dataset). However, it is also key, that we find all of the network info, because it is not in the transactions of a single account.
+
+Realized, that fraudsters do seldom only use cash (2-7 out of 11k accounts) and that we might be able to aggregate the cash transactions in order to condense our data.
+
+Question: does the simulation consider the order of transactions relevant? -> likely not, as it is agent based with a certin prob to perform such actions -> we could aggregate the transactions. If we assume only topological fraud (ie circle, fan-in/out etc) we could even aggregate per account pair. If we assume single transactions as fradulent we would need to be careful in agregation though -> from what i gather the core idea in amlsim (and paysim) is to only flag certain actions during simulation that are creating one of the known topologies.
+
+placative, but might help in shifting perspective: we are given the vertices of a graph that is constructed by the properties of the nodes. We then want to get back to the properties, more specifically the fraudster property.
+
+also: consider the other direction: which accounts are we sure of that are normal people?
+- accounts only using cash_in or cash_out (see plot). 
+- anything else?
 
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
@@ -72,5 +84,5 @@
 - added features v02
 - re-ran models with v02 features -> pretty good / on par results (see above)
 - investigated aggregation strategies: while interesting, the main source of error remains uncertainty in the transactional model
-- uploaded an unchecked submission with rf on train+val+kaggle -> results we're not good, as the model predicted 100% fraud for some reason -> but gave me the idea to reverse engineer the fraud/non-fraud ratio. Would need to submit a version with no fraud though.
+- uploaded an unchecked submission with rf on train+val+kaggle -> results we're not good, as the model predicted 100% fraud for some reason -> but gave me the idea to reverse engineer the fraud/non-fraud ratio. Would need to submit a version with no fraud though. -> missed that i could have already calculated it here. in the test set we have a precision of 0.114 if all are labeled fraudster -> so we have 11.4% fraudsters in the test set
 

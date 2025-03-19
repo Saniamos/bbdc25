@@ -12,44 +12,13 @@ from bert import TransactionBERTModel
 from dataloader import prepare_dataset, load_all
 
 
-@click.command()
-# Data parameters
-@click.option("--data_version", default="ver05", type=str, help="Data version to use")
-
-# Model parameters
-@click.option("--output_dir", default="./saved_models/transaction_bert", type=str, help="Output directory for models")
-
-# Training parameters
-# while a larger batch size like 48 would fit, it for some reason just takes ages in training. i'm assuming it fits in vram, but the optimizations for a smaller set are better
-@click.option("--batch_size", default=24, type=int, help="Batch size for training")
-@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
-@click.option("--val_every_epoch", default=3, type=int, help="Number of training epochs after which to run validation")
-@click.option("--gradient_accumulation_steps", default=1, type=int, help="Gradient accumulation steps")
-@click.option("--fp16", is_flag=True, help="Use 16-bit precision")
-
-@click.option("--out_name", default="final-model.ckpt", type=str, help="Name of the final model file")
-@click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
-@click.option("--fine_tune_ffn", is_flag=True, default=False, help="Fine-tune the feed-forward network")
-
-# Other parameters
-@click.option("--seed", default=42, type=int, help="Random seed")
-@click.option("--num_workers", default=4, type=int, help="Number of workers for data loading")
-@click.option("--patience", default=3, type=int, help="Early stopping patience")
-@click.option("--dry_run", is_flag=True, help="Perform a dry run (setup but no training)")
-
-def main(data_version, output_dir, batch_size, num_train_epochs, val_every_epoch,
-         gradient_accumulation_steps, fp16, out_name, continue_from_checkpoint, fine_tune_ffn, seed, num_workers, patience, dry_run):
-    
-    # Create output directory if it doesn't exist
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
+def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_all):
     # Set seed for reproducibility
     pl.seed_everything(seed)
     
     # Prepare datasets
     print("Loading and preparing datasets...")
-    dataset = prepare_dataset(data_version, load_all)
+    dataset = prepare_dataset(data_version, load_fn)
     
     # Get all labels to create a stratified split
     all_labels = dataset.get_fraud_labels_idx()
@@ -82,7 +51,8 @@ def main(data_version, output_dir, batch_size, num_train_epochs, val_every_epoch
         shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=True
+        drop_last=True,
+        prefetch_factor=3
     )
     
     val_loader = DataLoader(
@@ -91,8 +61,48 @@ def main(data_version, output_dir, batch_size, num_train_epochs, val_every_epoch
         shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=True
+        drop_last=True,
+        prefetch_factor=3
     )
+
+    return train_loader, val_loader, feature_dim
+
+
+@click.command()
+# Data parameters
+@click.option("--data_version", default="ver05", type=str, help="Data version to use")
+
+# Model parameters
+@click.option("--output_dir", default="./saved_models/transaction_bert", type=str, help="Output directory for models")
+
+# Training parameters
+# while a larger batch size like 48 would fit, it for some reason just takes ages in training. i'm assuming it fits in vram, but the optimizations for a smaller set are better
+@click.option("--batch_size", default=24, type=int, help="Batch size for training")
+@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
+@click.option("--val_every_epoch", default=3, type=int, help="Number of training epochs after which to run validation")
+@click.option("--gradient_accumulation_steps", default=1, type=int, help="Gradient accumulation steps")
+@click.option("--fp16", is_flag=True, help="Use 16-bit precision")
+
+@click.option("--out_name", default="final-model.ckpt", type=str, help="Name of the final model file")
+@click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
+@click.option("--fine_tune_ffn", is_flag=True, default=False, help="Fine-tune the feed-forward network")
+
+# Other parameters
+@click.option("--seed", default=42, type=int, help="Random seed")
+@click.option("--num_workers", default=4, type=int, help="Number of workers for data loading")
+@click.option("--patience", default=3, type=int, help="Early stopping patience")
+@click.option("--dry_run", is_flag=True, help="Perform a dry run (setup but no training)")
+def main(data_version, output_dir, batch_size, num_train_epochs, val_every_epoch,
+         gradient_accumulation_steps, fp16, out_name, continue_from_checkpoint, fine_tune_ffn, seed, num_workers, patience, dry_run):
+    
+    # Create output directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    # Set seed for reproducibility
+    pl.seed_everything(seed)
+    
+    train_loader, val_loader, feature_dim = prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers)
     
     # Initialize model
     print(f"Initializing Transaction BERT model with Hugging Face BERT")
