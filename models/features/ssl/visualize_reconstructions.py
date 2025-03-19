@@ -48,13 +48,13 @@ def main(model_path, data_version, output_dir, seed):
     
     # Get 2 fraud accounts (or as many as available)
     if fraud_account_ids:
-        selected_fraud = random.sample(fraud_account_ids, min(2, len(fraud_account_ids)))
+        selected_fraud = random.sample(fraud_account_ids, min(4, len(fraud_account_ids)))
         selected_account_ids.extend(selected_fraud)
         fraud_status.extend([True] * len(selected_fraud))
     
     # Get 2 non-fraud accounts (or as many as available)
     if non_fraud_account_ids:
-        selected_non_fraud = random.sample(non_fraud_account_ids, min(2, len(non_fraud_account_ids)))
+        selected_non_fraud = random.sample(non_fraud_account_ids, min(4, len(non_fraud_account_ids)))
         selected_account_ids.extend(selected_non_fraud)
         fraud_status.extend([False] * len(selected_non_fraud))
     
@@ -66,20 +66,14 @@ def main(model_path, data_version, output_dir, seed):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     feature_dim = val_dataset.feature_dim
     
-    model = TransactionBERTModel(feature_dim=feature_dim)
+    # Use Lightning's load_from_checkpoint method to load the model
+    model = TransactionBERTModel.load_from_checkpoint(
+        checkpoint_path=model_path,
+        feature_dim=feature_dim,
+        map_location=device
+    )
     
-    # Load state dict from checkpoint file
-    if model_path.endswith('.ckpt'):
-        # Lightning checkpoint
-        checkpoint = torch.load(model_path, map_location=device)
-        state_dict = checkpoint['state_dict']
-    else:
-        # Regular PyTorch checkpoint
-        state_dict = torch.load(model_path, map_location=device)
-    
-    # Load the state dict directly without fixing prefixes
-    # The model was created without compilation, so keys should match
-    model.load_state_dict(state_dict)
+    # No compilation needed for visualization
     model.to(device)
     model.eval()
     
@@ -191,5 +185,5 @@ def main(model_path, data_version, output_dir, seed):
 
 if __name__ == "__main__":
     # Example usage:
-    # python3 visualize_reconstructions.py --model_path ./saved_models/transaction_bert/final-model.pt
+    # python3 visualize_reconstructions.py --model_path ./saved_models/transaction_bert/final-model.ckpt
     main()

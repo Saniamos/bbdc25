@@ -111,17 +111,6 @@ class TransactionBERTModel(pl.LightningModule):
             dropout=dropout
         )
         
-        # Apply torch.compile if available and requested
-        if hasattr(torch, 'compile'):
-            try:
-                print("Compiling projection modules with torch.compile...")
-                self.input_projection = torch.compile(self.input_projection)
-                self.output_projection = torch.compile(self.output_projection)
-                self.bert = torch.compile(self.bert)
-                print("Compilation successful")
-            except Exception as e:
-                print(f"Failed to compile modules: {e}. Continuing with uncompiled versions.")
-        
     def forward(self, masked_seqs, masked_pos):
         """
         Forward pass for the model.
@@ -194,7 +183,11 @@ class TransactionBERTModel(pl.LightningModule):
         return loss
     
     def on_fit_start(self):
-        """Print parameter statistics at the beginning of training."""
+        """
+        Called at the beginning of training.
+        Compile the model here instead of in __init__ to ensure state_dict compatibility
+        """
+        # Print parameter statistics
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         total_params = sum(p.numel() for p in self.parameters())
         print(f"Trainable parameters: {trainable_params:,} ({trainable_params/total_params:.2%} of total)")

@@ -18,7 +18,7 @@ class AccountTransactionDataset(Dataset):
                  features_df: pd.DataFrame, 
                  labels_df: pd.DataFrame, 
                  feature_cols: Optional[List[str]] = None,
-                 max_seq_len: Optional[int] = None,
+                 max_seq_len: Optional[int] = 2048,
                  normalize=True,
                  mask=True):
         """
@@ -51,6 +51,7 @@ class AccountTransactionDataset(Dataset):
         assert "Fraudster" in labels_df.columns, "Labels DataFrame must have Fraudster column"
         
         # Create account to label mapping
+        self.fraud_bools = labels_df['Fraudster'].values 
         self.account_to_label = labels_df.set_index('AccountID')['Fraudster'].to_dict()
         
         # Determine feature columns
@@ -88,6 +89,9 @@ class AccountTransactionDataset(Dataset):
     
     def get_shape(self):
         return self.max_seq_len, self.feature_dim
+    
+    def get_fraud_labels_idx(self):
+        return self.fraud_bools
 
     def __len__(self) -> int:
         """Return the number of accounts."""
@@ -112,7 +116,6 @@ class AccountTransactionDataset(Dataset):
         features = account_transactions[self.feature_cols].values
         seq_len = features.shape[0]
 
-        
         # Create pre-padded tensor
         padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float32)
 
