@@ -4,7 +4,7 @@ from torch import nn
 import numpy as np
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc, f1_score
 import warnings
-from ssl.bert import TransactionBERTModel
+from ssl_models.bert import TransactionBERTModel
 
 # Try to import Flash Attention - if available
 try:

@@ -2,72 +2,11 @@ import os
 import click
 import torch
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader, Subset
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
-from sklearn.model_selection import train_test_split
-import numpy as np
-
 from bert import TransactionBERTModel
-from dataloader import prepare_dataset, load_all
+from dataloader import prep_hpsearch_dataloaders
 
-
-def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_all, 
-                              persistent_workers=True, pin_memory=True, prefetch_factor=2):
-    """
-    Prepare optimized dataloaders for hyperparameter search
-    """
-    pl.seed_everything(seed)
-    
-    # Prepare dataset
-    dataset = prepare_dataset(data_version, load_fn)
-    
-    # Get all labels to create a stratified split
-    all_labels = dataset.get_fraud_labels_idx()
-    
-    # Create stratified train/validation indices
-    indices = np.arange(len(dataset))
-    train_indices, val_indices = train_test_split(
-        indices, 
-        test_size=0.2,  # 20% for validation
-        random_state=seed,
-        stratify=all_labels  # This ensures the split preserves the class distribution
-    )
-    
-    # Create Subset objects
-    train_dataset = Subset(dataset, train_indices)
-    val_dataset = Subset(dataset, val_indices)
-    
-    print(f"Dataset split: {len(train_dataset)} training samples, {len(val_dataset)} validation samples")
-    print(f"Stratified by fraudster class to maintain class distribution in both sets")
-    
-    # Get feature dimension from dataset
-    feature_dim = dataset.feature_dim
-    print(f"Feature dimension: {feature_dim}")
-    
-    # Create optimized DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers if num_workers > 0 else False,
-        prefetch_factor=prefetch_factor if num_workers > 0 else None,
-        drop_last=True  # Improves performance by avoiding small batches
-    )
-    
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers if num_workers > 0 else False,
-        prefetch_factor=prefetch_factor if num_workers > 0 else None
-    )
-    
-    return train_loader, val_loader, feature_dim
 
 
 @click.command()

@@ -12,8 +12,7 @@ from sklearn.metrics import classification_report
 import logging
 import datetime
 
-from ssl.dataloader import prepare_dataset, load_train_val, load_test
-from ssl.train_bert_mlm import prep_hpsearch_dataloaders
+from ssl_models.dataloader import prepare_dataset, load_train_val, load_test, prep_hpsearch_dataloaders
 
 # Global constants for logging
 LOG_DIR = "logs"
@@ -125,7 +124,7 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
     
     # Prepare datasets
     logger.info("Preparing datasets...")
-    train_loader, val_loader, feature_dim = prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_train_val)
+    train_loader, val_loader, feature_dim = prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_train_val, log_fn=logger.info)
     
     test_dataset = prepare_dataset(data_version, load_test)
     test_loader = DataLoader(

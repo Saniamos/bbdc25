@@ -1,0 +1,16 @@
+2025-03-21 09:16:03,101 - INFO - Logging to file: logs/2025.03.21_09.16.03_Classifier.txt
+2025-03-21 09:16:03,102 - INFO - Configuration: data_version=ver05, model_class=fraud_classifier_simple.Classifier
+2025-03-21 09:16:03,102 - INFO - pretrained_model_path=None, output_dir=./saved_models/fraud_classifier
+2025-03-21 09:16:03,102 - INFO - freeze_bert=True, batch_size=128, epochs=10
+2025-03-21 09:16:03,102 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
+2025-03-21 09:16:03,102 - INFO - seed=42, num_workers=5, patience=3
+2025-03-21 09:16:03,103 - INFO - Set random seed to 42
+2025-03-21 09:16:03,103 - INFO - Preparing datasets...
+2025-03-21 09:16:12,755 - INFO - Dataset split: 17694 training samples, 4424 validation samples
+2025-03-21 09:16:12,755 - INFO - Stratified by fraudster class to maintain class distribution in both sets
+2025-03-21 09:16:12,756 - INFO - Feature dimension: 105
+2025-03-21 09:16:16,686 - INFO - Data loaders prepared. Feature dimension: 105
+2025-03-21 09:16:16,687 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-21 09:16:16,688 - INFO - Successfully imported model class: fraud_classifier_simple.Classifier
+2025-03-21 09:16:16,688 - INFO - Initializing Classifier
+2025-03-21 09:16:16,703 - INFO - Compiling model with torch.compile()...

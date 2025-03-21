@@ -4,8 +4,12 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from sklearn.calibration import LabelEncoder
-from transformers import PreTrainedTokenizer
 from sklearn.preprocessing import StandardScaler
+import torch
+import pytorch_lightning as pl
+from torch.utils.data import DataLoader, Subset
+from sklearn.model_selection import train_test_split
+import numpy as np
 
 na_cols = ['External', 'External_Type']
 
@@ -296,6 +300,66 @@ def prepare_dataset(ver, fn, **kwargs):
 def prepare_datasets(ver='ver01', fns=(load_train, load_val, load_test), **kwargs):
     return [prepare_dataset(ver, fn, **kwargs) for fn in fns]
     
+
+
+def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_all, 
+                              persistent_workers=True, pin_memory=True, prefetch_factor=2, log_fn=print):
+    """
+    Prepare optimized dataloaders for hyperparameter search
+    """
+    pl.seed_everything(seed)
+    
+    # Prepare dataset
+    dataset = prepare_dataset(data_version, load_fn)
+    
+    # Get all labels to create a stratified split
+    all_labels = dataset.get_fraud_labels_idx()
+    
+    # Create stratified train/validation indices
+    indices = np.arange(len(dataset))
+    train_indices, val_indices = train_test_split(
+        indices, 
+        test_size=0.2,  # 20% for validation
+        random_state=seed,
+        stratify=all_labels  # This ensures the split preserves the class distribution
+    )
+    
+    # Create Subset objects
+    train_dataset = Subset(dataset, train_indices)
+    val_dataset = Subset(dataset, val_indices)
+    
+    log_fn(f"Dataset split: {len(train_dataset)} training samples, {len(val_dataset)} validation samples")
+    log_fn(f"Stratified by fraudster class to maintain class distribution in both sets")
+    
+    # Get feature dimension from dataset
+    feature_dim = dataset.feature_dim
+    log_fn(f"Feature dimension: {feature_dim}")
+    
+    # Create optimized DataLoaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        drop_last=True  # Improves performance by avoiding small batches
+    )
+    
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None
+    )
+    
+    return train_loader, val_loader, feature_dim
+
+
 if __name__ == "__main__":
     from monitor import Monitor 
     import time
