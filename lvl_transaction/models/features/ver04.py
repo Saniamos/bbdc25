@@ -7,38 +7,42 @@ from snapml import GraphFeaturePreprocessor
 # The following dictionary defines the configuration parameters of the Graph Feature Preprocessor
 
 # tw = 24 * 31 # 5 days
-# tw = 24 # 5 days
-tw = 5
+tw = 32
+# tw = 16
 params = {
-    "num_threads": 10,             # number of software threads to be used (important for performance)
+    "num_threads": 8,             # number of software threads to be used (important for performance)
     "time_window": tw,            # time window used if no pattern was specified
     
     "vertex_stats": True,         # produce vertex statistics
     "vertex_stats_cols": [3],     # produce vertex statistics using the selected input columns
     
     # features: 0:fan,1:deg,2:ratio,3:avg,4:sum,5:min,6:max,7:median,8:var,9:skew,10:kurtosis
-    "vertex_stats_feats": [0, 1, 2, 3, 4, 8, 9, 10],  # fan,deg,ratio,avg,sum,var,skew,kurtosis
+    # "vertex_stats_feats": [0, 1, 2, 3, 4, 8, 9, 10],  # fan,deg,ratio,avg,sum,var,skew,kurtosis
+    "vertex_stats_feats": list(range(11)),  # fan,deg,ratio,avg,sum,var,skew,kurtosis
     
     # fan in/out parameters
     "fan": True,
     "fan_tw": tw,
     
     # in/out degree parameters
-    "degree": False,
+    "degree": True,
     "degree_tw": tw,
     
     # scatter gather parameters
-    "scatter-gather": False,
+    "scatter-gather": True,
     "scatter-gather_tw": tw,
+    # "scatter-gather_bins": [1],
     
     # temporal cycle parameters
     "temp-cycle": False,
     "temp-cycle_tw": tw,
+    "temp-cycle_bins": [1],
     
     # length-constrained simple cycle parameters
-    "lc-cycle": False,
+    "lc-cycle": True,
     "lc-cycle_tw": tw,
-    "lc-cycle_len": int(tw/2),
+    "lc-cycle_len": 8,
+    "lc-cycle_bins": list(range(1, 9)),
 }
 
 class Features:
@@ -47,9 +51,9 @@ class Features:
         self.external_type_encoder = LabelEncoder()
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
         self.graph_feature_preprocessor = GraphFeaturePreprocessor()
-        # self.graph_feature_preprocessor.set_params(params)
-        # import json
-        # print("Graph feature preprocessor parameters: ", json.dumps(self.graph_feature_preprocessor.get_params(), indent=4))
+        self.graph_feature_preprocessor.set_params(params)
+        import json
+        print("Graph feature preprocessor parameters: ", json.dumps(self.graph_feature_preprocessor.get_params(), indent=4))
 
     def _create_action_counts(self, X, result_df, group_cols):
         """Helper method to create action count features efficiently."""
@@ -184,12 +188,15 @@ if __name__ == "__main__":
 
     x_val_df = pd.read_parquet(VAL_X_PATH)
     y_val_df = pd.read_parquet(VAL_Y_PATH)
-    val = pd.merge(x_val_df, y_val_df, on="AccountID")[:100_000]
+    # val = pd.merge(x_val_df, y_val_df, on="AccountID")[:100_000]
+    # val = pd.merge(x_val_df, y_val_df, on="AccountID")[:500_000]
+    val = pd.merge(x_val_df, y_val_df, on="AccountID")[:]
     X_val = val.drop(columns=["Fraudster"])
     y_val = val["Fraudster"]
+    print(X_val.shape)
 
-    tnow = datetime.datetime.now()
     features = Features()
+    tnow = datetime.datetime.now()
     X_val = features.extract(X_val)
     print(f"Preprocessing took: {datetime.datetime.now() - tnow}")
     X_val[-50:].to_csv("test2.csv", index=False)

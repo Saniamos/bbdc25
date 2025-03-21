@@ -1,0 +1,53 @@
+2025-03-21 16:52:04,083 - INFO - Logging to file: logs/2025.03.21_16.52.04_simple_cnn.txt
+2025-03-21 16:52:04,083 - INFO - Configuration: data_version=ver01, model_class=simple_cnn
+2025-03-21 16:52:04,083 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
+2025-03-21 16:52:04,083 - INFO - freeze_bert=True, batch_size=256, epochs=20
+2025-03-21 16:52:04,083 - INFO - val_every_epoch=5, learning_rate=0.0001, weight_decay=0.01
+2025-03-21 16:52:04,083 - INFO - seed=42, num_workers=4, patience=3
+2025-03-21 16:52:04,084 - INFO - Set random seed to 42
+2025-03-21 16:52:04,084 - INFO - Preparing datasets...
+2025-03-21 16:52:04,085 - INFO - Loading training data...
+2025-03-21 16:52:06,397 - INFO - Loaded dataset with 11059 accounts and 1674104 transactions
+2025-03-21 16:52:06,398 - INFO - Feature columns: 34 -- ['Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MeanTransferAmount', 'MeanTransferCumSum', 'MeanTransferAmountDifference', 'NumExternalAccounts', 'NumExternalTypes', 'NumActions', 'NumCashIn', 'NumCashOut', 'NumDebit', 'NumPayment', 'NumTransfer', 'NumActionsPerDay', 'NumCashInPerDay', 'NumCashOutPerDay', 'NumDebitPerDay', 'NumPaymentPerDay', 'NumTransferPerDay', 'NumActionsPerHour', 'NumCashInPerHour', 'NumCashOutPerHour', 'NumDebitPerHour', 'NumPaymentPerHour', 'NumTransferPerHour']
+2025-03-21 16:52:06,398 - INFO - Fraud accounts: 1411 (12.76%)
+2025-03-21 16:52:06,670 - INFO - Loading validation data...
+2025-03-21 16:52:08,798 - INFO - Loaded dataset with 11059 accounts and 1704503 transactions
+2025-03-21 16:52:08,798 - INFO - Feature columns: 34 -- ['Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MeanTransferAmount', 'MeanTransferCumSum', 'MeanTransferAmountDifference', 'NumExternalAccounts', 'NumExternalTypes', 'NumActions', 'NumCashIn', 'NumCashOut', 'NumDebit', 'NumPayment', 'NumTransfer', 'NumActionsPerDay', 'NumCashInPerDay', 'NumCashOutPerDay', 'NumDebitPerDay', 'NumPaymentPerDay', 'NumTransferPerDay', 'NumActionsPerHour', 'NumCashInPerHour', 'NumCashOutPerHour', 'NumDebitPerHour', 'NumPaymentPerHour', 'NumTransferPerHour']
+2025-03-21 16:52:08,799 - INFO - Fraud accounts: 1472 (13.31%)
+2025-03-21 16:52:09,052 - INFO - Data loaders prepared. Feature dimension: 34
+2025-03-21 16:52:09,052 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-21 16:52:09,053 - INFO - Successfully imported model class: simple_cnn
+2025-03-21 16:52:09,053 - INFO - Initializing Classifier
+2025-03-21 16:52:09,070 - INFO - Compiling model with torch.compile()...
+2025-03-21 16:52:09,790 - INFO - Model compiled successfully
+2025-03-21 16:52:09,792 - INFO - TensorBoard logs will be saved to saved_models/simple_cnn/logs/simple_cnn/version_11
+2025-03-21 16:52:09,839 - INFO - Using GPU for training
+2025-03-21 16:52:09,863 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-21 16:52:09,863 - INFO - Starting training...
+2025-03-21 16:54:10,827 - INFO - Training completed. Final model saved to saved_models/simple_cnn/logs/simple_cnn/version_11/simple_cnn-final.ckpt
+2025-03-21 16:54:10,827 - INFO - ---------------------------------------------------
+2025-03-21 16:54:10,827 - INFO - 
+Evaluating model on validation set...
+2025-03-21 16:54:12,988 - INFO - Loaded dataset with 11059 accounts and 1704503 transactions
+2025-03-21 16:54:12,988 - INFO - Feature columns: 34 -- ['Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MeanTransferAmount', 'MeanTransferCumSum', 'MeanTransferAmountDifference', 'NumExternalAccounts', 'NumExternalTypes', 'NumActions', 'NumCashIn', 'NumCashOut', 'NumDebit', 'NumPayment', 'NumTransfer', 'NumActionsPerDay', 'NumCashInPerDay', 'NumCashOutPerDay', 'NumDebitPerDay', 'NumPaymentPerDay', 'NumTransferPerDay', 'NumActionsPerHour', 'NumCashInPerHour', 'NumCashOutPerHour', 'NumDebitPerHour', 'NumPaymentPerHour', 'NumTransferPerHour']
+2025-03-21 16:54:12,988 - INFO - Fraud accounts: 1472 (13.31%)
+2025-03-21 16:54:21,965 - INFO - 
+Validation Set Classification Report:
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.96      0.98      0.97      9587
+       Fraud       0.88      0.72      0.79      1472
+
+    accuracy                           0.95     11059
+   macro avg       0.92      0.85      0.88     11059
+weighted avg       0.95      0.95      0.95     11059
+
+2025-03-21 16:54:21,965 - INFO - ---------------------------------------------------
+2025-03-21 16:54:21,965 - INFO - Generating test predictions...
+2025-03-21 16:54:21,965 - INFO - Loading test data...
+2025-03-21 16:54:24,192 - INFO - Loaded dataset with 11057 accounts and 1646844 transactions
+2025-03-21 16:54:24,193 - INFO - Feature columns: 34 -- ['Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MeanTransferAmount', 'MeanTransferCumSum', 'MeanTransferAmountDifference', 'NumExternalAccounts', 'NumExternalTypes', 'NumActions', 'NumCashIn', 'NumCashOut', 'NumDebit', 'NumPayment', 'NumTransfer', 'NumActionsPerDay', 'NumCashInPerDay', 'NumCashOutPerDay', 'NumDebitPerDay', 'NumPaymentPerDay', 'NumTransferPerDay', 'NumActionsPerHour', 'NumCashInPerHour', 'NumCashOutPerHour', 'NumDebitPerHour', 'NumPaymentPerHour', 'NumTransferPerHour']
+2025-03-21 16:54:24,193 - INFO - Fraud accounts: 0 (0.00%)
+2025-03-21 16:54:29,754 - INFO - Predicted fraudster percentage: 0.0949624672153387
+2025-03-21 16:54:29,759 - INFO - Test predictions saved to logs/2025.03.21_16.52.04_simple_cnn_test.csv
+2025-03-21 16:54:29,759 - INFO - Training and evaluation complete!

@@ -11,13 +11,12 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-na_cols = ['External', 'External_Type']
+# Columns that can contain NA values
+NA_COLS = ['External', 'External_Type']
+EXCLUDE_COLS = ['AccountID', 'External']
+
 
 class AccountTransactionDataset(Dataset):
-    """
-    Dataset for loading all transactions for an account along with its fraud label.
-    """
-    
     def __init__(self, 
                  features_df: pd.DataFrame, 
                  labels_df: pd.DataFrame, 
@@ -25,7 +24,9 @@ class AccountTransactionDataset(Dataset):
                  max_seq_len: Optional[int] = 2048,
                  normalize=True,
                  mask=True,
-                 log_fn=print):
+                 log_fn=print,
+                 precompute=True,
+                 gpu_cache=False):
         """
         Initialize the dataset with feature and label dataframes.
         
@@ -34,81 +35,147 @@ class AccountTransactionDataset(Dataset):
             labels_df: DataFrame containing fraud labels with AccountID and Fraudster columns
             feature_cols: List of feature column names to use (if None, use all except AccountID)
             max_seq_len: Maximum sequence length for padding (if None, determined from data)
+            normalize: Whether to normalize numeric features
+            mask: Whether to apply masking
+            log_fn: Logging function
+            precompute: Whether to precompute and cache all tensors
+            gpu_cache: Whether to store precomputed tensors directly on GPU
         """
-        exclude_cols = ['AccountID', 'External']
+        # Identify string columns for encoding
         str_cols = features_df.select_dtypes(include=[object]).columns
-        print('str cols:', str_cols)
+        log_fn(f'String columns: {list(str_cols)}')
+        
+        # Normalize numeric features if requested
         if normalize:
-            self.normalizer = StandardScaler(copy=False)
             numeric_cols = features_df.select_dtypes(include=['number']).columns
-            scaled_features = self.normalizer.fit_transform(features_df[numeric_cols].values).astype(np.float16)
-            features_df[numeric_cols] = pd.DataFrame(scaled_features, index=features_df.index, columns=numeric_cols)            
-            del scaled_features
-
+            self._normalize_features(features_df, numeric_cols, log_fn)
+            
+        # Encode string columns
         for col in str_cols:
-            if col not in exclude_cols:
+            if col not in EXCLUDE_COLS:
                 features_df[col] = LabelEncoder().fit_transform(features_df[col])
 
+        # Set up masking function
+        self.mask = mask
         if not mask:
             self.mask_features = lambda x, y: (torch.empty(0), torch.empty(0))
         
-        # Ensure both dataframes have AccountID
-        assert "AccountID" in features_df.columns, "Features DataFrame must have AccountID column"
-        assert "AccountID" in labels_df.columns, "Labels DataFrame must have AccountID column"
-        assert "Fraudster" in labels_df.columns, "Labels DataFrame must have Fraudster column"
-        assert set(features_df['AccountID']) == set(labels_df['AccountID']), "AccountID mismatch between DataFrames"
+        # Validate that both DataFrames have required columns
+        self._validate_dataframes(features_df, labels_df)
         
-        # Create account to label mapping
+        # Store fraud labels and account IDs
         self.fraud_bools = labels_df['Fraudster'].values 
         self.account_ids = labels_df['AccountID'].values
-        # self.account_to_label = labels_df.set_index('AccountID')['Fraudster'].to_dict()
         
         # Determine feature columns
-        if feature_cols is None:
-            self.feature_cols = list(features_df.columns)
-        else:
-            self.feature_cols = feature_cols
-        self.feature_cols = [col for col in features_df.columns if col not in exclude_cols]
+        self.feature_cols = self._get_feature_columns(features_df, feature_cols)
         
         # Group transactions by account
         self.account_groups = features_df.groupby("AccountID")
         
         # Determine max sequence length if not provided
-        if max_seq_len is None:
-            self.max_seq_len = max(len(group) for _, group in self.account_groups)
-            log_fn(f"Determined max sequence length: {self.max_seq_len}")
-        else:
-            self.max_seq_len = max_seq_len
+        self.max_seq_len = self._get_max_seq_len(max_seq_len, log_fn)
             
         # Store feature dimension
         self.feature_dim = len(self.feature_cols)
         
-        # log some statistics
+        # Log dataset statistics
+        self._log_dataset_stats(features_df, labels_df, log_fn)
+        
+        # Check for NaN values (excluding allowed columns)
+        if features_df.drop(NA_COLS, axis=1).isnull().values.any():
+            raise ValueError('NaN values found in features_df')
+
+        # Free memory
+        del features_df
+
+        # Set up for precomputation
+        self.precompute = precompute
+        self.gpu_cache = gpu_cache
+        self.device = torch.device('cuda' if gpu_cache and torch.cuda.is_available() else 'cpu')
+        
+        # Precompute tensors if enabled
+        if self.precompute:
+            self._precompute_tensors(log_fn)
+
+    def _normalize_features(self, features_df, numeric_cols, log_fn):
+        """Normalize numeric features using StandardScaler."""
+        log_fn(f"Normalizing {len(numeric_cols)} numeric columns")
+        self.normalizer = StandardScaler(copy=False)
+        scaled_features = self.normalizer.fit_transform(features_df[numeric_cols].values).astype(np.float16)
+        features_df[numeric_cols] = pd.DataFrame(scaled_features, index=features_df.index, columns=numeric_cols)
+    
+    def _validate_dataframes(self, features_df, labels_df):
+        """Validate that DataFrames have required columns and matching AccountIDs."""
+        assert "AccountID" in features_df.columns, "Features DataFrame must have AccountID column"
+        assert "AccountID" in labels_df.columns, "Labels DataFrame must have AccountID column"
+        assert "Fraudster" in labels_df.columns, "Labels DataFrame must have Fraudster column"
+        assert set(features_df['AccountID']) == set(labels_df['AccountID']), "AccountID mismatch between DataFrames"
+    
+    def _get_feature_columns(self, features_df, feature_cols):
+        """Determine which columns to use as features."""
+        if feature_cols is None:
+            return [col for col in features_df.columns if col not in EXCLUDE_COLS]
+        return feature_cols
+    
+    def _get_max_seq_len(self, max_seq_len, log_fn):
+        """Determine maximum sequence length."""
+        if max_seq_len is None:
+            max_len = max(len(group) for _, group in self.account_groups)
+            log_fn(f"Determined max sequence length: {max_len}")
+            return max_len
+        return max_seq_len
+    
+    def _log_dataset_stats(self, features_df, labels_df, log_fn):
+        """Log dataset statistics."""
         log_fn(f"Loaded dataset with {len(self.account_ids)} accounts and {len(features_df)} transactions")
         log_fn(f"Feature columns: {len(self.feature_cols)} -- {list(self.feature_cols)}")
         log_fn(f"Fraud accounts: {labels_df['Fraudster'].sum()} ({(labels_df['Fraudster'].sum() / len(labels_df) * 100):.2f}%)")
+    
+    def _precompute_tensors(self, log_fn):
+        """Precompute all tensors for faster data loading."""
+        log_fn("Precomputing tensors for faster data loading...")
+        self.precomputed_data = []
         
-        # assert no nan values are present
-        if features_df.drop(na_cols, axis=1).isnull().values.any():
-            raise ValueError('nan values found in features_df')
-
-        del features_df
-
+        # Loop through all accounts and precompute tensors
+        for idx in range(len(self.account_ids)):
+            # Process account data
+            masked_features, masked_pos, padded_features, label = self._process_account_data(idx=idx)
+            
+            # Store on GPU if requested
+            if self.gpu_cache:
+                padded_features = padded_features.to(self.device)
+                masked_features = masked_features.to(self.device)
+                masked_pos = masked_pos.to(self.device)
+                label = label.to(self.device)
+            
+            # Store precomputed data
+            self.precomputed_data.append((masked_features, masked_pos, padded_features, label))
+        
+        log_fn(f"Precomputed {len(self.precomputed_data)} tensors (stored on {'GPU' if self.gpu_cache else 'CPU'})")
+        
+        # Free up memory
+        if self.precompute:
+            del self.account_groups
+            self.account_groups = None
     
     def get_shape(self):
+        """Return (max_seq_len, feature_dim) tuple describing the shape of features."""
         return self.max_seq_len, self.feature_dim
     
     def get_fraud_labels(self):
+        """Return array of fraud labels."""
         return self.fraud_bools
     
     def get_account_ids(self):
+        """Return array of account IDs."""
         return self.account_ids
     
     def __len__(self) -> int:
         """Return the number of accounts."""
         return len(self.account_ids)
     
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get all transactions for an account and its fraud label.
         
@@ -117,30 +184,61 @@ class AccountTransactionDataset(Dataset):
         
         Returns:
             Tuple containing:
-                - features: Padded tensor of transaction features [max_seq_len, num_features]
+                - masked_features: Masked tensor of transaction features
+                - masked_pos: Boolean tensor indicating masked positions
+                - features: Original padded tensor of transaction features
                 - label: Binary fraud label (0 or 1)
         """
-        account_id = self.account_ids[idx]
-        account_transactions = self.account_groups.get_group(account_id)
+        if self.precompute:
+            # Simply return precomputed tensors
+            return self.precomputed_data[idx]
+        
+        # Process account data on-the-fly
+        return self._process_account_data(idx=idx)
+    
+    def _process_account_data(self, account_id=None, idx=None, account_transactions=None):
+        """
+        Process a single account's transactions into tensor format.
+        
+        Args:
+            account_id: The account ID to process (used if account_transactions not provided)
+            idx: Index of the account in self.account_ids (used for getting label)
+            account_transactions: Pre-fetched transactions DataFrame (optional)
+        
+        Returns:
+            Tuple containing:
+                - masked_features: Masked tensor of transaction features
+                - masked_pos: Boolean tensor indicating masked positions
+                - padded_features: Original padded tensor of transaction features
+                - label: Binary fraud label (0 or 1)
+        """
+        # Get account transactions if not provided
+        if account_transactions is None:
+            if account_id is None:
+                account_id = self.account_ids[idx]
+            account_transactions = self.account_groups.get_group(account_id)
+        
+        # Get index from account_id if not provided
+        if idx is None:
+            idx = np.where(self.account_ids == account_id)[0][0]
         
         # Extract features and convert to tensor
         features = account_transactions[self.feature_cols].values
         seq_len = features.shape[0]
-
-        # Create pre-padded tensor
+        
+        # Create padded tensor
         padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float32)
-
-        # Fill with actual values (no need to copy if already a torch tensor)
         padded_features[:seq_len] = torch.FloatTensor(features)[:self.max_seq_len]
-
-        masked_features, masked_pos = self.mask_features(padded_features, seq_len)
+        
+        # Apply masking if needed
+        if self.mask:
+            masked_features, masked_pos = self.mask_features(padded_features, seq_len)
+        else:
+            masked_features = torch.empty(0)
+            masked_pos = torch.empty(0)
         
         # Get label for this account
         label = torch.FloatTensor([self.fraud_bools[idx]])
-
-        # check for nan values and raise an error if found
-        # if torch.isnan(padded_features).any():
-        #     raise ValueError('nan values found in padded_features')
         
         return masked_features, masked_pos, padded_features, label
     

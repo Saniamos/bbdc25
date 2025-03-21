@@ -40,6 +40,14 @@ also: consider the other direction: which accounts are we sure of that are norma
 
 currently working on account lvl classification. will add the exact number of fraudsters to the dataset/model (since we can count them in train, val and engineered it for test)
 
+Note on data version in comparision to the simple cnn:
+ver: fraud f1 -- tensorboard log version
+ver05: 0.92 -- 10
+ver01: 0.79 -- 11
+ver03: 0.91 -- 12
+ver02: 0.76 -- 13
+ver04: 0.92 -- 14
+
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
 - https://github.com/IBM/AMLSim

@@ -11,7 +11,7 @@ from sklearn.metrics import classification_report
 import logging
 import datetime
 
-from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train, prep_hpsearch_dataloaders, load_train_val
+from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train
 
 # Global constants for logging
 LOG_DIR = "logs"
@@ -84,7 +84,7 @@ def import_model_class(python_file_base, logger):
 
 # Training parameters
 @click.option("--batch_size", default=128, type=int, help="Batch size for training")
-@click.option("--num_train_epochs", default=1, type=int, help="Number of training epochs")
+@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
 @click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
 @click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
 @click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
@@ -123,32 +123,32 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     
     # Prepare datasets
     logger.info("Preparing datasets...")
-    train_loader, val_loader, feature_dim = prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers=num_workers, mask=False, log_fn=logger.info, load_fn=load_train_val)
-    # common_args = dict(
-    #         batch_size=batch_size,
-    #         num_workers=num_workers,
-    #         pin_memory=True,
-    #         persistent_workers=True if num_workers > 0 else False,
-    #         prefetch_factor=2 if num_workers > 0 else None,
-    # )
+
+    common_args = dict(
+            batch_size=batch_size,
+            num_workers=num_workers,
+            pin_memory=True,
+            persistent_workers=True if num_workers > 0 else False,
+            prefetch_factor=2 if num_workers > 0 else None,
+    )
     
-    # logger.info("Loading training data...")
-    # train_loader = DataLoader(
-    #         prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train),
-    #         shuffle=True,
-    #         drop_last=True,
-    #         **common_args
-    #     )    
+    logger.info("Loading training data...")
+    train_loader = DataLoader(
+            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train),
+            shuffle=True,
+            drop_last=True,
+            **common_args
+        )    
     
-    # logger.info("Loading validation data...")
-    # val_loader = DataLoader(
-    #         prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
-    #         shuffle=False,
-    #         drop_last=True,
-    #         **common_args
-    #     )  
+    logger.info("Loading validation data...")
+    val_loader = DataLoader(
+            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
+            shuffle=False,
+            drop_last=True,
+            **common_args
+        )  
     
-    # feature_dim = train_loader.dataset.feature_dim
+    feature_dim = train_loader.dataset.feature_dim
     logger.info(f"Data loaders prepared. Feature dimension: {feature_dim}")
     
     # Check if pretrained model exists (only if path is provided)
@@ -257,13 +257,7 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     # Calculate and display validation metrics
     logger.info('---------------------------------------------------')
     logger.info("\nEvaluating model on validation set...")
-    common_args = dict(
-            batch_size=batch_size,
-            num_workers=num_workers,
-            pin_memory=True,
-            persistent_workers=True if num_workers > 0 else False,
-            prefetch_factor=2 if num_workers > 0 else None,
-    )
+
     val_loader_pred = DataLoader(
         prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
         shuffle=False,
