@@ -94,5 +94,5 @@ ver04: 0.92 -- 14
 - added features v02
 - re-ran models with v02 features -> pretty good / on par results (see above)
 - investigated aggregation strategies: while interesting, the main source of error remains uncertainty in the transactional model
-- uploaded an unchecked submission with rf on train+val+kaggle -> results we're not good, as the model predicted 100% fraud for some reason -> but gave me the idea to reverse engineer the fraud/non-fraud ratio. Would need to submit a version with no fraud though. -> missed that i could have already calculated it here. in the test set we have a precision of 0.114 if all are labeled fraudster -> so we have 11.4% fraudsters in the test set
+- uploaded an unchecked submission with rf on train+val+kaggle -> results we're not good, as the model predicted 100% fraud for some reason -> but gave me the idea to reverse engineer the fraud/non-fraud ratio. Would need to submit a version with no fraud though. -> missed that i could have already calculated it here. in the test set we have a precision of 0.114 if all are labeled fraudster -> so we have 11.4% fraudsters in the test set, more precisely 1,267 out of the 11,057 accounts
 

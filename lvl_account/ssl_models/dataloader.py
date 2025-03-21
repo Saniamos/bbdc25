@@ -10,10 +10,17 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import train_test_split
 import numpy as np
+import gc
 
 # Columns that can contain NA values
 NA_COLS = ['External', 'External_Type']
 EXCLUDE_COLS = ['AccountID', 'External']
+
+N_FRAUDSTERS = {
+    'train': 1411,
+    'val': 1472,
+    'test': 1267
+}
 
 class AccountTransactionDataset(Dataset):
     def __init__(self, 
@@ -48,9 +55,11 @@ class AccountTransactionDataset(Dataset):
             self._normalize_features(features_df, numeric_cols, log_fn)
             
         # Encode string columns
+        self.encoders = {}
         for col in str_cols:
             if col not in EXCLUDE_COLS:
-                features_df[col] = LabelEncoder().fit_transform(features_df[col])
+                self.encoders[col] = LabelEncoder().fit(features_df[col])
+                features_df[col] = self.encoders[col].transform(features_df[col])
 
         # Set up masking function
         self.mask = mask
@@ -98,7 +107,7 @@ class AccountTransactionDataset(Dataset):
         log_fn(f"Normalizing {len(numeric_cols)} numeric columns")
         self.normalizer = StandardScaler(copy=False)
         scaled_features = self.normalizer.fit_transform(features_df[numeric_cols].values).astype(np.float16)
-        features_df[numeric_cols] = pd.DataFrame(scaled_features, index=features_df.index, columns=numeric_cols)
+        features_df[numeric_cols] = pd.DataFrame(scaled_features, index=features_df.index, columns=numeric_cols, dtype=np.float16)
     
     def _validate_dataframes(self, features_df, labels_df):
         """Validate that DataFrames have required columns and matching AccountIDs."""
@@ -127,10 +136,15 @@ class AccountTransactionDataset(Dataset):
         log_fn(f"Feature columns: {len(self.feature_cols)} -- {list(self.feature_cols)}")
         log_fn(f"Fraud accounts: {labels_df['Fraudster'].sum()} ({(labels_df['Fraudster'].sum() / len(labels_df) * 100):.2f}%)")
     
+
+    def delete_cache(self):
+        del self.precomputed_data
+        self.precomputed_data = None
+        gc.collect()
+
     def _precompute_tensors(self, log_fn):
         """Precompute all tensors for faster data loading."""
         import tqdm
-        from joblib import Parallel, delayed
         
         log_fn("Precomputing tensors for faster data loading...")
         total_accounts = len(self.account_ids)
@@ -145,6 +159,7 @@ class AccountTransactionDataset(Dataset):
         # Free up memory
         del self.account_groups
         self.account_groups = None
+        gc.collect()
     
     def get_shape(self):
         """Return (max_seq_len, feature_dim) tuple describing the shape of features."""
@@ -183,14 +198,12 @@ class AccountTransactionDataset(Dataset):
         # Process account data on-the-fly
         return self._process_account_data(idx=idx)
     
-    def _process_account_data(self, account_id=None, idx=None, account_transactions=None):
+    def _process_account_data(self, idx):
         """
         Process a single account's transactions into tensor format.
         
         Args:
-            account_id: The account ID to process (used if account_transactions not provided)
             idx: Index of the account in self.account_ids (used for getting label)
-            account_transactions: Pre-fetched transactions DataFrame (optional)
         
         Returns:
             Tuple containing:
@@ -199,23 +212,16 @@ class AccountTransactionDataset(Dataset):
                 - padded_features: Original padded tensor of transaction features
                 - label: Binary fraud label (0 or 1)
         """
-        # Get account transactions if not provided
-        if account_transactions is None:
-            if account_id is None:
-                account_id = self.account_ids[idx]
-            account_transactions = self.account_groups.get_group(account_id)
-        
-        # Get index from account_id if not provided
-        if idx is None:
-            idx = np.where(self.account_ids == account_id)[0][0]
+        account_id = self.account_ids[idx]
+        account_transactions = self.account_groups.get_group(account_id)
         
         # Extract features and convert to tensor
-        features = account_transactions[self.feature_cols].values
+        features = account_transactions[self.feature_cols][:self.max_seq_len].to_numpy().astype(np.float16)
         seq_len = features.shape[0]
         
         # Create padded tensor
-        padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float32)
-        padded_features[:seq_len] = torch.FloatTensor(features)[:self.max_seq_len]
+        padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float16)
+        padded_features[:seq_len] = torch.from_numpy(features)
         
         # Apply masking if needed
         if self.mask:
@@ -225,7 +231,7 @@ class AccountTransactionDataset(Dataset):
             masked_pos = torch.empty(0)
         
         # Get label for this account
-        label = torch.FloatTensor([self.fraud_bools[idx]])
+        label = torch.Tensor([self.fraud_bools[idx]])
         
         return masked_features, masked_pos, padded_features, label
     

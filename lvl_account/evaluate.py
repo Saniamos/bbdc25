@@ -10,9 +10,10 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from sklearn.metrics import classification_report
 import logging
 import datetime
+import numpy as np
 import gc  # For garbage collection
 
-from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train
+from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train, N_FRAUDSTERS
 
 # Global constants for logging
 LOG_DIR = "logs"
@@ -71,31 +72,26 @@ def import_model_class(python_file_base, logger):
 
 
 def train_model(logger, model_class, data_version, pretrained_model_path, freeze_bert, 
-               continue_from_checkpoint, batch_size, num_train_epochs, val_every_epoch, 
-               learning_rate, weight_decay, seed, num_workers, patience, dry_run, output_dir):
+               continue_from_checkpoint, num_train_epochs, val_every_epoch, 
+               learning_rate, weight_decay, patience, dry_run, output_dir, common_args):
     """Train the model and save checkpoints"""
     
     logger.info("Preparing datasets for training...")
     
-    common_args = dict(
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=True,
-        persistent_workers=True if num_workers > 0 else False,
-        prefetch_factor=2 if num_workers > 0 else None,
-    )
     
     logger.info("Loading training data...")
+    train_dataset = prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train)
     train_loader = DataLoader(
-        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train),
+        train_dataset, 
         shuffle=True,
         drop_last=True,
         **common_args
     )    
     
     logger.info("Loading validation data...")
+    val_dataset = prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val)
     val_loader = DataLoader(
-        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
+        val_dataset, 
         shuffle=False,
         drop_last=True,
         **common_args
@@ -209,17 +205,21 @@ def train_model(logger, model_class, data_version, pretrained_model_path, freeze
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     
-    return model, trainer, final_model_path, base_pt_name, common_args
+    return model, trainer, final_model_path, train_dataset, val_dataset
 
+def probs_to_preds(probs, top_n):
+    preds = np.zeros_like(probs)
+    preds[np.argsort(-probs)[:top_n]] = 1
+    return preds
 
-def evaluate_on_validation(logger, trainer, model, data_version, common_args):
+def evaluate_on_validation(logger, trainer, model, data_version, common_args, val_dataset):
     """Evaluate the model on the validation set and report metrics"""
     
     logger.info('---------------------------------------------------')
     logger.info("\nEvaluating model on validation set...")
 
     val_loader_pred = DataLoader(
-        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
+        val_dataset,
         shuffle=False,
         drop_last=False,
         **common_args
@@ -234,7 +234,14 @@ def evaluate_on_validation(logger, trainer, model, data_version, common_args):
     # Print classification report
     report = classification_report(val_labels, val_preds, target_names=["Non-Fraud", "Fraud"])
     logger.info("\nValidation Set Classification Report:\n" + report)
-    
+
+
+    val_probs = torch.cat([batch["probs"] for batch in val_predictions]).cpu().numpy().astype(int).flatten()
+    n = N_FRAUDSTERS['val']
+    val_probs_prebs = probs_to_preds(val_probs, n)
+    report = classification_report(val_labels, val_probs_prebs, target_names=["Non-Fraud", "Fraud"])
+    logger.info(f"\nValidation Set Classification Report (top {n}):\n" + report)
+
     # Free up memory
     del val_loader_pred, val_predictions
     gc.collect()
@@ -317,7 +324,7 @@ def generate_test_predictions(logger, trainer, model, data_version, common_args,
 
 # Other parameters
 @click.option("--seed", default=42, type=int, help="Random seed")
-@click.option("--num_workers", default=1, type=int, help="Number of workers for data loading")
+@click.option("--num_workers", default=0, type=int, help="Number of workers for data loading")
 @click.option("--patience", default=3, type=int, help="Early stopping patience")
 @click.option("--dry_run", is_flag=True, help="Perform a dry run (setup but no training)")
 @click.option("--skeleton_file", default="~/Repositories/bbdc25/task/professional_skeleton.csv", 
@@ -350,12 +357,21 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     pl.seed_everything(seed)
     logger.info(f"Set random seed to {seed}")
     
+    # Setup common args
+    common_args = dict(
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True if num_workers > 0 else False,
+        prefetch_factor=2 if num_workers > 0 else None,
+    )
+
     if not skip_train:
         # Train the model
-        model, trainer, final_model_path, base_pt_name, common_args = train_model(
+        model, trainer, final_model_path, train_dataset, val_dataset = train_model(
             logger, model_class, data_version, pretrained_model_path, freeze_bert, 
-            continue_from_checkpoint, batch_size, num_train_epochs, val_every_epoch, 
-            learning_rate, weight_decay, seed, num_workers, patience, dry_run, output_dir
+            continue_from_checkpoint, num_train_epochs, val_every_epoch, 
+            learning_rate, weight_decay, patience, dry_run, output_dir, common_args
         )
     else:
         # Load existing model
@@ -365,14 +381,6 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
             logger.error("Must provide --continue_from_checkpoint when using --skip_train")
             return
         
-        # Setup common args
-        common_args = dict(
-            batch_size=batch_size,
-            num_workers=num_workers,
-            pin_memory=True,
-            persistent_workers=True if num_workers > 0 else False,
-            prefetch_factor=2 if num_workers > 0 else None,
-        )
         
         # Import model class
         ModelClass = import_model_class(model_class, logger)
@@ -387,10 +395,13 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
         # Load the model
         model = ModelClass.load_from_checkpoint(final_model_path)
         logger.info(f"Loaded model from {final_model_path}")
+        train_dataset.delete_cache()
     
-    if not skip_validation:
+    if not skip_validation:            
         # Evaluate on validation set
-        evaluate_on_validation(logger, trainer, model, data_version, common_args)
+        evaluate_on_validation(logger, trainer, model, data_version, common_args, val_dataset)
+        val_dataset.delete_cache()
+
     
     if not skip_test:
         # Generate test predictions
