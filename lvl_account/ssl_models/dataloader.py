@@ -15,7 +15,6 @@ import numpy as np
 NA_COLS = ['External', 'External_Type']
 EXCLUDE_COLS = ['AccountID', 'External']
 
-
 class AccountTransactionDataset(Dataset):
     def __init__(self, 
                  features_df: pd.DataFrame, 
@@ -25,8 +24,7 @@ class AccountTransactionDataset(Dataset):
                  normalize=True,
                  mask=True,
                  log_fn=print,
-                 precompute=True,
-                 gpu_cache=False):
+                 precompute=True):
         """
         Initialize the dataset with feature and label dataframes.
         
@@ -39,7 +37,6 @@ class AccountTransactionDataset(Dataset):
             mask: Whether to apply masking
             log_fn: Logging function
             precompute: Whether to precompute and cache all tensors
-            gpu_cache: Whether to store precomputed tensors directly on GPU
         """
         # Identify string columns for encoding
         str_cols = features_df.select_dtypes(include=[object]).columns
@@ -91,8 +88,6 @@ class AccountTransactionDataset(Dataset):
 
         # Set up for precomputation
         self.precompute = precompute
-        self.gpu_cache = gpu_cache
-        self.device = torch.device('cuda' if gpu_cache and torch.cuda.is_available() else 'cpu')
         
         # Precompute tensors if enabled
         if self.precompute:
@@ -134,30 +129,22 @@ class AccountTransactionDataset(Dataset):
     
     def _precompute_tensors(self, log_fn):
         """Precompute all tensors for faster data loading."""
+        import tqdm
+        from joblib import Parallel, delayed
+        
         log_fn("Precomputing tensors for faster data loading...")
+        total_accounts = len(self.account_ids)
+
+        # Sequential processing with a progress bar
         self.precomputed_data = []
+        for idx in tqdm.tqdm(range(total_accounts), desc="Precomputing"):
+            self.precomputed_data.append(self._process_account_data(idx=idx))
         
-        # Loop through all accounts and precompute tensors
-        for idx in range(len(self.account_ids)):
-            # Process account data
-            masked_features, masked_pos, padded_features, label = self._process_account_data(idx=idx)
-            
-            # Store on GPU if requested
-            if self.gpu_cache:
-                padded_features = padded_features.to(self.device)
-                masked_features = masked_features.to(self.device)
-                masked_pos = masked_pos.to(self.device)
-                label = label.to(self.device)
-            
-            # Store precomputed data
-            self.precomputed_data.append((masked_features, masked_pos, padded_features, label))
-        
-        log_fn(f"Precomputed {len(self.precomputed_data)} tensors (stored on {'GPU' if self.gpu_cache else 'CPU'})")
+        log_fn(f"Precomputed {len(self.precomputed_data)} tensors")
         
         # Free up memory
-        if self.precompute:
-            del self.account_groups
-            self.account_groups = None
+        del self.account_groups
+        self.account_groups = None
     
     def get_shape(self):
         """Return (max_seq_len, feature_dim) tuple describing the shape of features."""

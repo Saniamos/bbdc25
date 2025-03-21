@@ -10,6 +10,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from sklearn.metrics import classification_report
 import logging
 import datetime
+import gc  # For garbage collection
 
 from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train
 
@@ -69,84 +70,36 @@ def import_model_class(python_file_base, logger):
         raise ImportError(f"Could not import model class '{python_file_base}': {e}")
 
 
-@click.command()
-# Data parameters
-@click.option("--data_version", default="ver05", type=str, help="Data version to use")
-@click.option("--pretrained_model_path", required=False, default=None, type=str, 
-              help="Path to pre-trained SSL model (only needed for certain model types)")
-
-# Model parameters
-@click.option("--model_class", default="simple_cnn", type=str, 
-              help="Model class to use (module.ClassName format)")
-@click.option("--freeze_bert", is_flag=True, default=True, help="Whether to freeze BERT weights")
-
-@click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
-
-# Training parameters
-@click.option("--batch_size", default=128, type=int, help="Batch size for training")
-@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
-@click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
-@click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
-@click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
-
-# Other parameters
-@click.option("--seed", default=42, type=int, help="Random seed")
-@click.option("--num_workers", default=4, type=int, help="Number of workers for data loading")
-@click.option("--patience", default=3, type=int, help="Early stopping patience")
-@click.option("--dry_run", is_flag=True, help="Perform a dry run (setup but no training)")
-@click.option("--skeleton_file", default="~/Repositories/bbdc25/task/professional_skeleton.csv", 
-              type=str, help="Path to the skeleton file for test predictions")
-def main(model_class, data_version, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
-         num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
-         skeleton_file):
+def train_model(logger, model_class, data_version, pretrained_model_path, freeze_bert, 
+               continue_from_checkpoint, batch_size, num_train_epochs, val_every_epoch, 
+               learning_rate, weight_decay, seed, num_workers, patience, dry_run, output_dir):
+    """Train the model and save checkpoints"""
     
-    # Setup logging
-    logger = setup_logger(model_class)
+    logger.info("Preparing datasets for training...")
     
-    # Log all configuration options
-    logger.info(f"Configuration: data_version={data_version}, model_class={model_class}")
-    output_dir = os.path.join("saved_models", model_class)
-    logger.info(f"pretrained_model_path={pretrained_model_path}, output_dir={output_dir}")
-    logger.info(f"freeze_bert={freeze_bert}, batch_size={batch_size}, epochs={num_train_epochs}")
-    val_every_epoch = min(val_every_epoch, num_train_epochs)
-    logger.info(f"val_every_epoch={val_every_epoch}, learning_rate={learning_rate}, weight_decay={weight_decay}")
-    logger.info(f"seed={seed}, num_workers={num_workers}, patience={patience}")
-    
-    # Create output directory if it doesn't exist
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        logger.info(f"Created output directory: {output_dir}")
-    
-    # Set seed for reproducibility
-    pl.seed_everything(seed)
-    logger.info(f"Set random seed to {seed}")
-    
-    # Prepare datasets
-    logger.info("Preparing datasets...")
-
     common_args = dict(
-            batch_size=batch_size,
-            num_workers=num_workers,
-            pin_memory=True,
-            persistent_workers=True if num_workers > 0 else False,
-            prefetch_factor=2 if num_workers > 0 else None,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True if num_workers > 0 else False,
+        prefetch_factor=2 if num_workers > 0 else None,
     )
     
     logger.info("Loading training data...")
     train_loader = DataLoader(
-            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train),
-            shuffle=True,
-            drop_last=True,
-            **common_args
-        )    
+        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train),
+        shuffle=True,
+        drop_last=True,
+        **common_args
+    )    
     
     logger.info("Loading validation data...")
     val_loader = DataLoader(
-            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
-            shuffle=False,
-            drop_last=True,
-            **common_args
-        )  
+        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
+        shuffle=False,
+        drop_last=True,
+        **common_args
+    )  
     
     feature_dim = train_loader.dataset.feature_dim
     logger.info(f"Data loaders prepared. Feature dimension: {feature_dim}")
@@ -186,7 +139,6 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     model = ModelClass(**model_kwargs)
 
     # Apply torch.compile if available (PyTorch 2.0+)
-    # This is the preferred way to compile models in Lightning
     if hasattr(torch, 'compile'):
         try:
             logger.info("Compiling model with torch.compile()...")
@@ -210,7 +162,6 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     logger.info(f"TensorBoard logs will be saved to {tensorboard_logger.log_dir}")
 
     # Setup checkpointing - using F1 score as our only primary metric
-    # base_pt_name = f'{tensorboard_logger.log_dir}/{model_class}'
     base_pt_name = f'{tensorboard_logger.log_dir.replace(output_dir + "/", "")}/{model_class}'
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
@@ -252,9 +203,18 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     
     logger.info(f"Training completed. Final model saved to {final_model_path}")
     
+    # Free up memory
+    del train_loader, val_loader
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    return model, trainer, final_model_path, base_pt_name, common_args
 
 
-    # Calculate and display validation metrics
+def evaluate_on_validation(logger, trainer, model, data_version, common_args):
+    """Evaluate the model on the validation set and report metrics"""
+    
     logger.info('---------------------------------------------------')
     logger.info("\nEvaluating model on validation set...")
 
@@ -274,20 +234,27 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     # Print classification report
     report = classification_report(val_labels, val_preds, target_names=["Non-Fraud", "Fraud"])
     logger.info("\nValidation Set Classification Report:\n" + report)
+    
+    # Free up memory
+    del val_loader_pred, val_predictions
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
-
-    # Generate and save predictions
+def generate_test_predictions(logger, trainer, model, data_version, common_args, skeleton_file):
+    """Generate predictions on the test set and save to CSV"""
+    
     logger.info('---------------------------------------------------')
     logger.info("Generating test predictions...")
     
     logger.info("Loading test data...")
     test_loader = DataLoader(
-            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_test),
-            shuffle=False,
-            drop_last=False,
-            **common_args
-        )
+        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_test),
+        shuffle=False,
+        drop_last=False,
+        **common_args
+    )
     
     # Use the PyTorch Lightning predict method which calls our predict_step
     predictions = trainer.predict(model, test_loader)
@@ -319,7 +286,117 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     aligned_predictions.to_csv(predictions_output, index=False)
     logger.info(f"Test predictions saved to {predictions_output}")
     
-    logger.info("Training and evaluation complete!")
+    # Free up memory
+    del test_loader, predictions
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    return predictions_output
+
+
+@click.command()
+# Data parameters
+@click.option("--data_version", default="ver05", type=str, help="Data version to use")
+@click.option("--pretrained_model_path", required=False, default=None, type=str, 
+              help="Path to pre-trained SSL model (only needed for certain model types)")
+
+# Model parameters
+@click.option("--model_class", default="simple_cnn", type=str, 
+              help="Model class to use (module.ClassName format)")
+@click.option("--freeze_bert", is_flag=True, default=True, help="Whether to freeze BERT weights")
+
+@click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
+
+# Training parameters
+@click.option("--batch_size", default=128, type=int, help="Batch size for training")
+@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
+@click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
+@click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
+@click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
+
+# Other parameters
+@click.option("--seed", default=42, type=int, help="Random seed")
+@click.option("--num_workers", default=1, type=int, help="Number of workers for data loading")
+@click.option("--patience", default=3, type=int, help="Early stopping patience")
+@click.option("--dry_run", is_flag=True, help="Perform a dry run (setup but no training)")
+@click.option("--skeleton_file", default="~/Repositories/bbdc25/task/professional_skeleton.csv", 
+              type=str, help="Path to the skeleton file for test predictions")
+@click.option("--skip_train", is_flag=True, help="Skip training and use existing model")
+@click.option("--skip_validation", is_flag=True, help="Skip validation evaluation")
+@click.option("--skip_test", is_flag=True, help="Skip test prediction")
+def main(model_class, data_version, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
+         num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
+         skeleton_file, skip_train, skip_validation, skip_test):
+    
+    # Setup logging
+    logger = setup_logger(model_class)
+    
+    # Log all configuration options
+    logger.info(f"Configuration: data_version={data_version}, model_class={model_class}")
+    output_dir = os.path.join("saved_models", model_class)
+    logger.info(f"pretrained_model_path={pretrained_model_path}, output_dir={output_dir}")
+    logger.info(f"freeze_bert={freeze_bert}, batch_size={batch_size}, epochs={num_train_epochs}")
+    val_every_epoch = min(val_every_epoch, num_train_epochs)
+    logger.info(f"val_every_epoch={val_every_epoch}, learning_rate={learning_rate}, weight_decay={weight_decay}")
+    logger.info(f"seed={seed}, num_workers={num_workers}, patience={patience}")
+    
+    # Create output directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        logger.info(f"Created output directory: {output_dir}")
+    
+    # Set seed for reproducibility
+    pl.seed_everything(seed)
+    logger.info(f"Set random seed to {seed}")
+    
+    if not skip_train:
+        # Train the model
+        model, trainer, final_model_path, base_pt_name, common_args = train_model(
+            logger, model_class, data_version, pretrained_model_path, freeze_bert, 
+            continue_from_checkpoint, batch_size, num_train_epochs, val_every_epoch, 
+            learning_rate, weight_decay, seed, num_workers, patience, dry_run, output_dir
+        )
+    else:
+        # Load existing model
+        logger.info("Skipping training and loading existing model...")
+        final_model_path = continue_from_checkpoint
+        if final_model_path is None:
+            logger.error("Must provide --continue_from_checkpoint when using --skip_train")
+            return
+        
+        # Setup common args
+        common_args = dict(
+            batch_size=batch_size,
+            num_workers=num_workers,
+            pin_memory=True,
+            persistent_workers=True if num_workers > 0 else False,
+            prefetch_factor=2 if num_workers > 0 else None,
+        )
+        
+        # Import model class
+        ModelClass = import_model_class(model_class, logger)
+        
+        # Initialize trainer
+        trainer = pl.Trainer(
+            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            devices=1,
+            precision='16-mixed',
+        )
+        
+        # Load the model
+        model = ModelClass.load_from_checkpoint(final_model_path)
+        logger.info(f"Loaded model from {final_model_path}")
+    
+    if not skip_validation:
+        # Evaluate on validation set
+        evaluate_on_validation(logger, trainer, model, data_version, common_args)
+    
+    if not skip_test:
+        # Generate test predictions
+        generate_test_predictions(logger, trainer, model, data_version, common_args, skeleton_file)
+    
+    logger.info("Process complete!")
 
 
 if __name__ == "__main__":
@@ -327,4 +404,5 @@ if __name__ == "__main__":
     # python3 evaluate.py --model_class bert --pretrained_model_path=./models/features/ssl/saved_models/transaction_bert/final-model.ckpt
     # python3 evaluate.py --model_class simple_cnn
     # python3 evaluate.py --model_class simple_cnn --batch_size=256 --num_train_epochs=30 --val_every_epoch=5
+    # python3 evaluate.py --skip_train --continue_from_checkpoint=./saved_models/simple_cnn/simple_cnn-final.ckpt
     main()
