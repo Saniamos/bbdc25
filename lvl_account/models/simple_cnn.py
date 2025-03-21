@@ -140,7 +140,7 @@ class Classifier(pl.LightningModule):
         return logits
     
     def training_step(self, batch, batch_idx):
-        x, _, _, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
+        _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
         # Create sequence mask (identifies non-padding elements)
         seq_mask = torch.any(x != 0, dim=-1).float()  # [batch_size, seq_len]
@@ -156,14 +156,14 @@ class Classifier(pl.LightningModule):
             logits.view(-1), y.view(-1), 
             pos_weight=pos_weight
         )
-        
+          
         # Log metrics
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
         
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, _, _, y = batch
+        _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
         # Create sequence mask - optimized
         seq_mask = torch.any(x != 0, dim=-1).float()
@@ -182,16 +182,44 @@ class Classifier(pl.LightningModule):
         # For proper evaluation metrics, use unweighted predictions
         probs = torch.sigmoid(logits.view(-1))
         preds = (probs > 0.5).float()
+        
+        # Calculate accuracy
         correct = (preds == y.view(-1)).float().sum()
         total = y.numel()
+        accuracy = correct / total
+        
+        # Calculate F1 score specifically for fraud class (class 1)
+        y_true = y.view(-1)
+        y_pred = preds
+        
+        # True positives, false positives, false negatives for FRAUD class
+        fraud_tp = torch.logical_and(y_true == 1, y_pred == 1).sum().float()
+        fraud_fp = torch.logical_and(y_true == 0, y_pred == 1).sum().float()
+        fraud_fn = torch.logical_and(y_true == 1, y_pred == 0).sum().float()
+        
+        # Precision and recall for FRAUD class with epsilon to avoid division by zero
+        epsilon = 1e-7
+        fraud_precision = fraud_tp / (fraud_tp + fraud_fp + epsilon)
+        fraud_recall = fraud_tp / (fraud_tp + fraud_fn + epsilon)
+        
+        # F1 score for FRAUD class
+        fraud_f1 = 2 * (fraud_precision * fraud_recall) / (fraud_precision + fraud_recall + epsilon)
         
         # Log metrics
         self.log_dict({
             "val_loss": val_loss, 
-            "val_acc": correct / total
+            "val_acc": accuracy,
+            "val_fraud_precision": fraud_precision,
+            "val_fraud_recall": fraud_recall,
+            "val_fraud_f1": fraud_f1
         }, prog_bar=True, sync_dist=True)
         
-        return {"val_loss": val_loss}
+        return {
+            "val_loss": val_loss,
+            "val_fraud_f1": fraud_f1,
+            "val_fraud_precision": fraud_precision,
+            "val_fraud_recall": fraud_recall
+        }
     
     def configure_optimizers(self):
         # Use Lion optimizer for faster convergence
@@ -212,19 +240,16 @@ class Classifier(pl.LightningModule):
             )
             print("Using AdamW optimizer")
         
-        # Add learning rate scheduler with warmup and cosine decay
+        # Use CosineAnnealingWarmRestarts instead of OneCycleLR
+        # This scheduler handles resuming from checkpoints better
         scheduler = {
-            "scheduler": torch.optim.lr_scheduler.OneCycleLR(
+            "scheduler": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 optimizer,
-                max_lr=self.max_lr,
-                total_steps=self.trainer.estimated_stepping_batches,
-                pct_start=0.1,  # Warmup for 10% of training
-                div_factor=self.max_lr/self.hparams.learning_rate,  # Initial LR
-                final_div_factor=self.hparams.learning_rate/self.min_lr,  # Final LR
-                three_phase=False,
-                anneal_strategy='cos',
+                T_0=5,  # Restart every 5 epochs
+                T_mult=1,  # Keep the same cycle length after restart
+                eta_min=self.min_lr,  # Minimum learning rate
             ),
-            "interval": "step",
+            "interval": "epoch",
             "frequency": 1,
             "name": "learning_rate"
         }
@@ -235,20 +260,19 @@ class Classifier(pl.LightningModule):
         """
         Prediction step for generating fraud probabilities and predictions.
         """
-        x, _, _, _ = batch
+        _, _, x, _ = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
         # Create sequence mask - optimized
         seq_mask = torch.any(x != 0, dim=-1).float()
         
         # Forward pass
-        with torch.cuda.amp.autocast():  # Use mixed precision for inference
-            logits = self(x, seq_mask)
-            
-            # Get probabilities
-            probs = torch.sigmoid(logits)
-            
-            # Get binary predictions
-            preds = (probs > 0.5).float()
+        logits = self(x, seq_mask)
+        
+        # Get probabilities
+        probs = torch.sigmoid(logits)
+        
+        # Get binary predictions
+        preds = (probs > 0.5).float()
         
         return {"probs": probs, "preds": preds}
 

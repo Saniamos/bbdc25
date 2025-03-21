@@ -49,16 +49,19 @@ class AccountTransactionDataset(Dataset):
             if col not in exclude_cols:
                 features_df[col] = LabelEncoder().fit_transform(features_df[col])
 
-        self.mask = mask
+        if not mask:
+            self.mask_features = lambda x, y: (torch.empty(0), torch.empty(0))
+        
         # Ensure both dataframes have AccountID
         assert "AccountID" in features_df.columns, "Features DataFrame must have AccountID column"
         assert "AccountID" in labels_df.columns, "Labels DataFrame must have AccountID column"
         assert "Fraudster" in labels_df.columns, "Labels DataFrame must have Fraudster column"
+        assert set(features_df['AccountID']) == set(labels_df['AccountID']), "AccountID mismatch between DataFrames"
         
         # Create account to label mapping
         self.fraud_bools = labels_df['Fraudster'].values 
         self.account_ids = labels_df['AccountID'].values
-        self.account_to_label = labels_df.set_index('AccountID')['Fraudster'].to_dict()
+        # self.account_to_label = labels_df.set_index('AccountID')['Fraudster'].to_dict()
         
         # Determine feature columns
         if feature_cols is None:
@@ -69,7 +72,6 @@ class AccountTransactionDataset(Dataset):
         
         # Group transactions by account
         self.account_groups = features_df.groupby("AccountID")
-        self.account_ids = list(self.account_groups.groups.keys())
         
         # Determine max sequence length if not provided
         if max_seq_len is None:
@@ -87,8 +89,8 @@ class AccountTransactionDataset(Dataset):
         log_fn(f"Fraud accounts: {labels_df['Fraudster'].sum()} ({(labels_df['Fraudster'].sum() / len(labels_df) * 100):.2f}%)")
         
         # assert no nan values are present
-        # if features_df.drop(na_cols, axis=1).isnull().values.any():
-        #     raise ValueError('nan values found in features_df')
+        if features_df.drop(na_cols, axis=1).isnull().values.any():
+            raise ValueError('nan values found in features_df')
 
         del features_df
 
@@ -96,9 +98,12 @@ class AccountTransactionDataset(Dataset):
     def get_shape(self):
         return self.max_seq_len, self.feature_dim
     
-    def get_fraud_labels_idx(self):
+    def get_fraud_labels(self):
         return self.fraud_bools
-
+    
+    def get_account_ids(self):
+        return self.account_ids
+    
     def __len__(self) -> int:
         """Return the number of accounts."""
         return len(self.account_ids)
@@ -126,17 +131,16 @@ class AccountTransactionDataset(Dataset):
         padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float32)
 
         # Fill with actual values (no need to copy if already a torch tensor)
-        padded_features[:seq_len] = torch.FloatTensor(features)
+        padded_features[:seq_len] = torch.FloatTensor(features)[:self.max_seq_len]
 
         masked_features, masked_pos = self.mask_features(padded_features, seq_len)
         
         # Get label for this account
-        label = self.account_to_label[account_id]
-        label = torch.FloatTensor([label])
+        label = torch.FloatTensor([self.fraud_bools[idx]])
 
         # check for nan values and raise an error if found
-        if torch.isnan(padded_features).any():
-            raise ValueError('nan values found in padded_features')
+        # if torch.isnan(padded_features).any():
+        #     raise ValueError('nan values found in padded_features')
         
         return masked_features, masked_pos, padded_features, label
     
@@ -169,10 +173,7 @@ class AccountTransactionDataset(Dataset):
         Returns:
             masked_features: Features with masking applied
             masked_pos: Boolean tensor indicating masked positions
-        """
-        if not self.mask:
-            return features, torch.zeros_like(features, dtype=torch.bool)
-        
+        """        
         # Create output tensors (avoid unnecessary copies)
         masked_features = features.clone()
         masked_pos = torch.zeros_like(features, dtype=torch.bool)
@@ -363,12 +364,45 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
 
 
 if __name__ == "__main__":
-    from monitor import Monitor 
-    import time
-    with Monitor():
-        x_train_df, y_train_df = load_train('ver01')
+    num_workers = 4
+    val_loader = DataLoader(
+        prepare_dataset('ver05', mask=False, log_fn=print, fn=load_val),
+        shuffle=False,
+        drop_last=False,
+        batch_size=128,
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True if num_workers > 0 else False,
+        prefetch_factor=2 if num_workers > 0 else None,
+    )  
 
-        dataset = AccountTransactionDataset(x_train_df, y_train_df)
-        print(dataset[0])
-        print(dataset[0][0].shape)
-        time.sleep(1)
+    account_ids = []
+    fraud_bools = []
+    for i, batch in enumerate(val_loader):
+        _, _, _, fraud, account_id = batch
+        account_ids.extend(account_id)
+        fraud_bools.extend(fraud.flatten())
+
+    account_ids = np.array(account_ids)
+    fraud_bools = np.array(fraud_bools)
+
+    d = val_loader.dataset
+
+    account_ids_accoring_to_prop = np.array(d.account_ids)
+    fraud_bools_according_to_prop = np.array(d.fraud_bools)
+
+    print(account_ids != account_ids_accoring_to_prop)
+    print((account_ids != account_ids_accoring_to_prop).sum())
+    print(fraud_bools != fraud_bools_according_to_prop)
+    print((fraud_bools != fraud_bools_according_to_prop).sum())
+    print('Done')
+
+    # from monitor import Monitor 
+    # import time
+    # with Monitor():
+        # x_train_df, y_train_df = load_train('ver01')
+
+        # dataset = AccountTransactionDataset(x_train_df, y_train_df)
+        # print(dataset[0])
+        # print(dataset[0][0].shape)
+        # time.sleep(1)

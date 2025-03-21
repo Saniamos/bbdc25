@@ -335,7 +335,7 @@ class Classifier(pl.LightningModule):
         return logits
     
     def training_step(self, batch, batch_idx):
-        x, _, _, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
+        _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
         # Create sequence mask (identifies non-padding elements)
         seq_mask = (x.sum(dim=-1) != 0).float()  # [batch_size, seq_len]
@@ -354,7 +354,7 @@ class Classifier(pl.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        x, _, _, y = batch
+        _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
         # Create sequence mask
         seq_mask = (x.sum(dim=-1) != 0).float()  # [batch_size, seq_len]
@@ -399,7 +399,7 @@ class Classifier(pl.LightningModule):
         Returns:
             Dictionary containing probabilities and binary predictions
         """
-        x, _, _, _ = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
+        _, _, x, _ = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
         # Create sequence mask (identifies non-padding elements)
         seq_mask = (x.sum(dim=-1) != 0).float()  # [batch_size, seq_len]

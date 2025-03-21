@@ -7,12 +7,11 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities.model_summary import ModelSummary
 from sklearn.metrics import classification_report
 import logging
 import datetime
 
-from ssl_models.dataloader import prepare_datasets
+from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train
 
 # Global constants for logging
 LOG_DIR = "logs"
@@ -85,7 +84,7 @@ def import_model_class(python_file_base, logger):
 
 # Training parameters
 @click.option("--batch_size", default=128, type=int, help="Batch size for training")
-@click.option("--num_train_epochs", default=20, type=int, help="Number of training epochs")
+@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
 @click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
 @click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
 @click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
@@ -124,18 +123,30 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     
     # Prepare datasets
     logger.info("Preparing datasets...")
-    train_loader, val_loader, test_loader = [
-            DataLoader(
-            dataset,
+
+    common_args = dict(
             batch_size=batch_size,
-            shuffle= i == 0, # enable shuffling on train_loader
             num_workers=num_workers,
             pin_memory=True,
             persistent_workers=True if num_workers > 0 else False,
             prefetch_factor=2 if num_workers > 0 else None,
-            drop_last=i<2  # Improves performance by avoiding small batches, except for test_loader
-        )
-        for i, dataset in enumerate(prepare_datasets(data_version, mask=False, log_fn=logger.info))]
+    )
+    
+    logger.info("Loading training data...")
+    train_loader = DataLoader(
+            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train),
+            shuffle=True,
+            drop_last=True,
+            **common_args
+        )    
+    
+    logger.info("Loading validation data...")
+    val_loader = DataLoader(
+            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
+            shuffle=False,
+            drop_last=True,
+            **common_args
+        )  
     
     feature_dim = train_loader.dataset.feature_dim
     logger.info(f"Data loaders prepared. Feature dimension: {feature_dim}")
@@ -199,7 +210,8 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     logger.info(f"TensorBoard logs will be saved to {tensorboard_logger.log_dir}")
 
     # Setup checkpointing - using F1 score as our only primary metric
-    base_pt_name = f'{tensorboard_logger.log_dir}/{model_class}'
+    # base_pt_name = f'{tensorboard_logger.log_dir}/{model_class}'
+    base_pt_name = f'{tensorboard_logger.log_dir.replace(output_dir + "/", "")}/{model_class}'
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=output_dir,
@@ -227,10 +239,6 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     if torch.cuda.is_available():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
 
-    # Print model summary before training
-    model_summary = ModelSummary(model, max_depth=2)
-    logger.info("Model Summary:\n" + str(model_summary))
-    
     # Train the model
     logger.info("Starting training...")
     torch.set_float32_matmul_precision('high')
@@ -245,36 +253,53 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     logger.info(f"Training completed. Final model saved to {final_model_path}")
     
 
+
     # Calculate and display validation metrics
     logger.info('---------------------------------------------------')
     logger.info("\nEvaluating model on validation set...")
-    val_predictions = trainer.predict(model, val_loader)
+
+    val_loader_pred = DataLoader(
+        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val),
+        shuffle=False,
+        drop_last=False,
+        **common_args
+    )    
+      
+    val_predictions = trainer.predict(model, val_loader_pred)
 
     # Gather predictions and true labels
-    val_probs = torch.cat([batch["probs"] for batch in val_predictions]).cpu().numpy()
-    val_preds = (val_probs > 0.5).astype(int).flatten()
-    val_labels = val_loader.dataset.fraud_bools
-    val_labels = val_labels[:len(val_preds)]  # Ensure same length
+    val_preds = torch.cat([batch["preds"] for batch in val_predictions]).cpu().numpy().astype(int).flatten()
+    val_labels = val_loader_pred.dataset.get_fraud_labels()[:len(val_preds)]  # Ensure same length
 
     # Print classification report
     report = classification_report(val_labels, val_preds, target_names=["Non-Fraud", "Fraud"])
     logger.info("\nValidation Set Classification Report:\n" + report)
 
+
+
     # Generate and save predictions
     logger.info('---------------------------------------------------')
     logger.info("Generating test predictions...")
     
+    logger.info("Loading test data...")
+    test_loader = DataLoader(
+            prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_test),
+            shuffle=False,
+            drop_last=False,
+            **common_args
+        )
+    
     # Use the PyTorch Lightning predict method which calls our predict_step
     predictions = trainer.predict(model, test_loader)
-    
-    # Concatenate predictions from all batches
-    all_probs = torch.cat([batch["probs"] for batch in predictions]).cpu().numpy()
-    binary_preds = (all_probs > 0.5).astype(int).flatten()
-    
+
+    # Gather predictions and account ids labels
+    preds = torch.cat([batch["preds"] for batch in predictions]).cpu().numpy().astype(int).flatten()
+    account_ids = test_loader.dataset.get_account_ids()[:len(preds)]  # Ensure same length
+
     # Create DataFrame with predictions
     predictions_df = pd.DataFrame({
-        "AccountID": test_loader.dataset.account_ids[:len(binary_preds)],
-        "Fraudster": binary_preds
+        "AccountID": account_ids,
+        "Fraudster": preds.astype(int)
     })
     predictions_df['AccountID'] = predictions_df['AccountID'].str.split('yh').str[0]       
     
@@ -286,7 +311,6 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
         on="AccountID", 
         how="left"
     ).fillna(0)
-    aligned_predictions['Fraudster'] = aligned_predictions['Fraudster'].astype(int)
 
     logger.info(f"Predicted fraudster percentage: {aligned_predictions['Fraudster'].mean()}")
     
