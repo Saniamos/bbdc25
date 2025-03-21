@@ -15,6 +15,7 @@ snapml
 pytorch-lightning
 transformers
 tensorboardX
+lion_pytorch
 
 --extra-index-url https://download.pytorch.org/whl/cu126
 torch

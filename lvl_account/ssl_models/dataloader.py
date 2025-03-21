@@ -24,7 +24,8 @@ class AccountTransactionDataset(Dataset):
                  feature_cols: Optional[List[str]] = None,
                  max_seq_len: Optional[int] = 2048,
                  normalize=True,
-                 mask=True):
+                 mask=True,
+                 log_fn=print):
         """
         Initialize the dataset with feature and label dataframes.
         
@@ -56,6 +57,7 @@ class AccountTransactionDataset(Dataset):
         
         # Create account to label mapping
         self.fraud_bools = labels_df['Fraudster'].values 
+        self.account_ids = labels_df['AccountID'].values
         self.account_to_label = labels_df.set_index('AccountID')['Fraudster'].to_dict()
         
         # Determine feature columns
@@ -72,17 +74,17 @@ class AccountTransactionDataset(Dataset):
         # Determine max sequence length if not provided
         if max_seq_len is None:
             self.max_seq_len = max(len(group) for _, group in self.account_groups)
-            print(f"Determined max sequence length: {self.max_seq_len}")
+            log_fn(f"Determined max sequence length: {self.max_seq_len}")
         else:
             self.max_seq_len = max_seq_len
             
         # Store feature dimension
         self.feature_dim = len(self.feature_cols)
         
-        # Print some statistics
-        print(f"Loaded dataset with {len(self.account_ids)} accounts and {len(features_df)} transactions")
-        print(f"Feature columns: {len(self.feature_cols)}")
-        print(f"Fraud accounts: {labels_df['Fraudster'].sum()} ({(labels_df['Fraudster'].sum() / len(labels_df) * 100):.2f}%)")
+        # log some statistics
+        log_fn(f"Loaded dataset with {len(self.account_ids)} accounts and {len(features_df)} transactions")
+        log_fn(f"Feature columns: {len(self.feature_cols)} -- {list(self.feature_cols)}")
+        log_fn(f"Fraud accounts: {labels_df['Fraudster'].sum()} ({(labels_df['Fraudster'].sum() / len(labels_df) * 100):.2f}%)")
         
         # assert no nan values are present
         # if features_df.drop(na_cols, axis=1).isnull().values.any():
@@ -303,14 +305,14 @@ def prepare_datasets(ver='ver01', fns=(load_train, load_val, load_test), **kwarg
 
 
 def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_all, 
-                              persistent_workers=True, pin_memory=True, prefetch_factor=2, log_fn=print):
+                              persistent_workers=True, pin_memory=True, prefetch_factor=2, log_fn=print, **kwargs):
     """
     Prepare optimized dataloaders for hyperparameter search
     """
     pl.seed_everything(seed)
     
     # Prepare dataset
-    dataset = prepare_dataset(data_version, load_fn)
+    dataset = prepare_dataset(data_version, load_fn, **kwargs)
     
     # Get all labels to create a stratified split
     all_labels = dataset.get_fraud_labels_idx()

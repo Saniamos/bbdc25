@@ -38,6 +38,8 @@ also: consider the other direction: which accounts are we sure of that are norma
 - accounts only using cash_in or cash_out (see plot). 
 - anything else?
 
+currently working on account lvl classification. will add the exact number of fraudsters to the dataset/model (since we can count them in train, val and engineered it for test)
+
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
 - https://github.com/IBM/AMLSim

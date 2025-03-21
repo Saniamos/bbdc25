@@ -1,0 +1,47 @@
+2025-03-21 10:24:29,048 - INFO - Logging to file: logs/2025.03.21_10.24.29_simple_cnn.txt
+2025-03-21 10:24:29,049 - INFO - Configuration: data_version=ver05, model_class=simple_cnn
+2025-03-21 10:24:29,049 - INFO - pretrained_model_path=None, output_dir=./saved_models/fraud_classifier
+2025-03-21 10:24:29,049 - INFO - freeze_bert=True, batch_size=128, epochs=1
+2025-03-21 10:24:29,049 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
+2025-03-21 10:24:29,049 - INFO - seed=42, num_workers=4, patience=3
+2025-03-21 10:24:29,049 - INFO - Created output directory: ./saved_models/fraud_classifier
+2025-03-21 10:24:29,051 - INFO - Set random seed to 42
+2025-03-21 10:24:29,051 - INFO - Preparing datasets...
+2025-03-21 10:24:42,569 - INFO - Data loaders prepared. Feature dimension: 105
+2025-03-21 10:24:42,570 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-21 10:24:42,570 - INFO - Successfully imported model class: simple_cnn
+2025-03-21 10:24:42,571 - INFO - Initializing Classifier
+2025-03-21 10:24:42,589 - INFO - Compiling model with torch.compile()...
+2025-03-21 10:24:43,808 - INFO - Model compiled successfully
+2025-03-21 10:24:43,813 - INFO - TensorBoard logs will be saved to ./saved_models/fraud_classifier/logs
+2025-03-21 10:24:43,865 - INFO - Using GPU for training
+2025-03-21 10:24:43,893 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-21 10:24:43,896 - INFO - Model Summary:
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _orig_mod            | Classifier | 2.1 M  | train
+1 | _orig_mod.cnn_layers | Sequential | 2.1 M  | train
+2 | _orig_mod.classifier | Sequential | 8.3 K  | train
+------------------------------------------------------------
+2.1 M     Trainable params
+0         Non-trainable params
+2.1 M     Total params
+8.273     Total estimated model params size (MB)
+42        Modules in train mode
+0         Modules in eval mode
+2025-03-21 10:24:43,897 - INFO - Starting training...
+2025-03-21 10:25:45,927 - INFO - Training completed. Final model saved to ./saved_models/fraud_classifier/final-fraud-classifier.pt
+2025-03-21 10:25:45,928 - INFO - 
+Evaluating model on validation set...
+2025-03-21 10:27:00,289 - INFO - 
+Validation Set Classification Report:
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.87      0.72      0.79      9587
+       Fraud       0.14      0.29      0.19      1472
+
+    accuracy                           0.66     11059
+   macro avg       0.50      0.51      0.49     11059
+weighted avg       0.77      0.66      0.71     11059
+
+2025-03-21 10:27:00,290 - INFO - Generating test predictions...

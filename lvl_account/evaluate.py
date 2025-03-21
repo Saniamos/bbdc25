@@ -12,7 +12,7 @@ from sklearn.metrics import classification_report
 import logging
 import datetime
 
-from ssl_models.dataloader import prepare_dataset, load_train_val, load_test, prep_hpsearch_dataloaders
+from ssl_models.dataloader import prepare_datasets
 
 # Global constants for logging
 LOG_DIR = "logs"
@@ -54,19 +54,20 @@ def setup_logger(model_class):
     return logger
 
 
-def import_model_class(model_class_path, logger):
+def import_model_class(python_file_base, logger):
     """
     Dynamically import a model class from a string path.
     e.g. 'fraud_classifier.Classifer' or 'models.transformer.TransformerClassifier'
     """
     try:
-        module_path, class_name = model_class_path.rsplit('.', 1)
+        module_path = 'models.' + python_file_base
+        class_name = 'Classifier'
         module = importlib.import_module(module_path)
         model_class = getattr(module, class_name)
         return model_class
     except (ImportError, AttributeError) as e:
-        logger.error(f"Could not import model class '{model_class_path}': {e}")
-        raise ImportError(f"Could not import model class '{model_class_path}': {e}")
+        logger.error(f"Could not import model class '{python_file_base}': {e}")
+        raise ImportError(f"Could not import model class '{python_file_base}': {e}")
 
 
 @click.command()
@@ -76,40 +77,39 @@ def import_model_class(model_class_path, logger):
               help="Path to pre-trained SSL model (only needed for certain model types)")
 
 # Model parameters
-@click.option("--model_class", default="fraud_classifier.Classifer", type=str, 
+@click.option("--model_class", default="simple_cnn", type=str, 
               help="Model class to use (module.ClassName format)")
-@click.option("--output_dir", default="./saved_models/fraud_classifier", type=str, help="Output directory for models")
 @click.option("--freeze_bert", is_flag=True, default=True, help="Whether to freeze BERT weights")
 
 @click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
 
 # Training parameters
 @click.option("--batch_size", default=128, type=int, help="Batch size for training")
-@click.option("--num_train_epochs", default=10, type=int, help="Number of training epochs")
-@click.option("--val_every_epoch", default=3, type=int, help="Number of training epochs after which to run validation")
+@click.option("--num_train_epochs", default=20, type=int, help="Number of training epochs")
+@click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
 @click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
 @click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
 
 # Other parameters
 @click.option("--seed", default=42, type=int, help="Random seed")
-@click.option("--num_workers", default=5, type=int, help="Number of workers for data loading")
+@click.option("--num_workers", default=4, type=int, help="Number of workers for data loading")
 @click.option("--patience", default=3, type=int, help="Early stopping patience")
 @click.option("--dry_run", is_flag=True, help="Perform a dry run (setup but no training)")
 @click.option("--skeleton_file", default="~/Repositories/bbdc25/task/professional_skeleton.csv", 
               type=str, help="Path to the skeleton file for test predictions")
-@click.option("--predictions_output", default=None, type=str, 
-              help="Path to save test predictions (defaults to output_dir/predictions.csv)")
-def main(model_class, data_version, pretrained_model_path, output_dir, freeze_bert, continue_from_checkpoint, batch_size, 
+def main(model_class, data_version, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
          num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
-         skeleton_file, predictions_output):
+         skeleton_file):
     
     # Setup logging
     logger = setup_logger(model_class)
     
     # Log all configuration options
     logger.info(f"Configuration: data_version={data_version}, model_class={model_class}")
+    output_dir = os.path.join("saved_models", model_class)
     logger.info(f"pretrained_model_path={pretrained_model_path}, output_dir={output_dir}")
     logger.info(f"freeze_bert={freeze_bert}, batch_size={batch_size}, epochs={num_train_epochs}")
+    val_every_epoch = min(val_every_epoch, num_train_epochs)
     logger.info(f"val_every_epoch={val_every_epoch}, learning_rate={learning_rate}, weight_decay={weight_decay}")
     logger.info(f"seed={seed}, num_workers={num_workers}, patience={patience}")
     
@@ -124,16 +124,20 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
     
     # Prepare datasets
     logger.info("Preparing datasets...")
-    train_loader, val_loader, feature_dim = prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_train_val, log_fn=logger.info)
+    train_loader, val_loader, test_loader = [
+            DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle= i == 0, # enable shuffling on train_loader
+            num_workers=num_workers,
+            pin_memory=True,
+            persistent_workers=True if num_workers > 0 else False,
+            prefetch_factor=2 if num_workers > 0 else None,
+            drop_last=i<2  # Improves performance by avoiding small batches, except for test_loader
+        )
+        for i, dataset in enumerate(prepare_datasets(data_version, mask=False, log_fn=logger.info))]
     
-    test_dataset = prepare_dataset(data_version, load_test)
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True
-    )
+    feature_dim = train_loader.dataset.feature_dim
     logger.info(f"Data loaders prepared. Feature dimension: {feature_dim}")
     
     # Check if pretrained model exists (only if path is provided)
@@ -151,6 +155,7 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
         logger.info(f"Successfully imported model class: {model_class}")
     except ImportError as e:
         logger.error(f"Error importing model class: {e}")
+        import sys
         sys.exit(1)
 
     # Initialize model with optional pretrained path
@@ -178,30 +183,31 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
             logger.info("Model compiled successfully")
         except Exception as e:
             logger.warning(f"Model compilation failed: {e}. Training with uncompiled model.")
-    
-    # Setup checkpointing - using F1 score as our only primary metric
-    checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',
-        dirpath=output_dir,
-        filename='fraud-bert-{epoch:02d}-{val_loss:.4f}',
-        save_top_k=3,
-        mode='min',  # F1 score should be maximized
-        save_weights_only=True
-    )
-    
+        
     # Early stopping - using F1 score as our only primary metric
     early_stop_callback = EarlyStopping(
         monitor='val_loss',
         patience=patience,
-        mode='min',  # F1 score should be maximized
+        mode='min',
     )
     
     # Setup tensorboard logger
     tensorboard_logger = TensorBoardLogger(
         save_dir=os.path.join(output_dir, 'logs'),
-        name='fraud-classifier'
+        name=model_class
     )
-    logger.info(f"TensorBoard logs will be saved to {os.path.join(output_dir, 'logs')}")
+    logger.info(f"TensorBoard logs will be saved to {tensorboard_logger.log_dir}")
+
+    # Setup checkpointing - using F1 score as our only primary metric
+    base_pt_name = f'{tensorboard_logger.log_dir}/{model_class}'
+    checkpoint_callback = ModelCheckpoint(
+        monitor='val_loss',
+        dirpath=output_dir,
+        filename=base_pt_name + '-{epoch:02d}-{val_loss:.4f}',
+        save_top_k=3,
+        mode='min',
+        save_weights_only=True
+    )
     
     # Initialize trainer
     trainer = pl.Trainer(
@@ -231,7 +237,7 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
     trainer.fit(model, train_loader, val_loader, **({'ckpt_path': continue_from_checkpoint} if continue_from_checkpoint else {}))
 
     # Save the final model
-    final_model_path = os.path.join(output_dir, 'final-fraud-classifier.pt')
+    final_model_path = os.path.join(output_dir, f'{base_pt_name}-final.ckpt')
     if os.path.exists(final_model_path):
         os.remove(final_model_path)
     trainer.save_checkpoint(final_model_path)
@@ -240,27 +246,22 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
     
 
     # Calculate and display validation metrics
+    logger.info('---------------------------------------------------')
     logger.info("\nEvaluating model on validation set...")
     val_predictions = trainer.predict(model, val_loader)
 
     # Gather predictions and true labels
     val_probs = torch.cat([batch["probs"] for batch in val_predictions]).cpu().numpy()
     val_preds = (val_probs > 0.5).astype(int).flatten()
-    val_labels = []
-
-    # Extract validation labels
-    for batch in val_loader:
-        _, _, _, y = batch
-        val_labels.extend(y.cpu().numpy().flatten())
-
+    val_labels = val_loader.dataset.fraud_bools
     val_labels = val_labels[:len(val_preds)]  # Ensure same length
 
     # Print classification report
     report = classification_report(val_labels, val_preds, target_names=["Non-Fraud", "Fraud"])
     logger.info("\nValidation Set Classification Report:\n" + report)
 
-
     # Generate and save predictions
+    logger.info('---------------------------------------------------')
     logger.info("Generating test predictions...")
     
     # Use the PyTorch Lightning predict method which calls our predict_step
@@ -270,22 +271,12 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
     all_probs = torch.cat([batch["probs"] for batch in predictions]).cpu().numpy()
     binary_preds = (all_probs > 0.5).astype(int).flatten()
     
-    # Extract account IDs
-    test_account_ids = []
-    dataset_size = len(test_dataset)
-    
-    # Process batches to get account IDs
-    for i, (indices_start) in enumerate(range(0, dataset_size, batch_size)):
-        indices_end = min(indices_start + batch_size, dataset_size)
-        batch_indices = range(indices_start, indices_end)
-        batch_account_ids = [test_dataset.account_ids[idx] for idx in batch_indices]
-        test_account_ids.extend(batch_account_ids)
-    
     # Create DataFrame with predictions
     predictions_df = pd.DataFrame({
-        "AccountID": test_account_ids[:len(binary_preds)],
+        "AccountID": test_loader.dataset.account_ids[:len(binary_preds)],
         "Fraudster": binary_preds
     })
+    predictions_df['AccountID'] = predictions_df['AccountID'].str.split('yh').str[0]       
     
     # Ensure predictions are in the same order as the skeleton file
     skeleton_df = pd.read_csv(skeleton_file)
@@ -295,12 +286,12 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
         on="AccountID", 
         how="left"
     ).fillna(0)
-    
-    # Set output path
-    if predictions_output is None:
-        predictions_output = os.path.join(output_dir, "predictions.csv")
+    aligned_predictions['Fraudster'] = aligned_predictions['Fraudster'].astype(int)
+
+    logger.info(f"Predicted fraudster percentage: {aligned_predictions['Fraudster'].mean()}")
     
     # Save predictions
+    predictions_output = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")
     aligned_predictions.to_csv(predictions_output, index=False)
     logger.info(f"Test predictions saved to {predictions_output}")
     
@@ -309,6 +300,7 @@ def main(model_class, data_version, pretrained_model_path, output_dir, freeze_be
 
 if __name__ == "__main__":
     # Example usage:
-    # python3 train_fraud_classifier.py --pretrained_model_path=./models/features/ssl/saved_models/transaction_bert/final-model.ckpt
-    # python3 train_fraud_classifier.py --model_class fraud_classifier_simple.Classifier
+    # python3 evaluate.py --model_class bert --pretrained_model_path=./models/features/ssl/saved_models/transaction_bert/final-model.ckpt
+    # python3 evaluate.py --model_class simple_cnn
+    # python3 evaluate.py --model_class simple_cnn --batch_size=256 --num_train_epochs=30 --val_every_epoch=5
     main()

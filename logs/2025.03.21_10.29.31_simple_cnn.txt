@@ -1,0 +1,49 @@
+2025-03-21 10:29:31,547 - INFO - Logging to file: logs/2025.03.21_10.29.31_simple_cnn.txt
+2025-03-21 10:29:31,548 - INFO - Configuration: data_version=ver05, model_class=simple_cnn
+2025-03-21 10:29:31,548 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
+2025-03-21 10:29:31,548 - INFO - freeze_bert=True, batch_size=128, epochs=1
+2025-03-21 10:29:31,548 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
+2025-03-21 10:29:31,548 - INFO - seed=42, num_workers=4, patience=3
+2025-03-21 10:29:31,548 - INFO - Created output directory: saved_models/simple_cnn
+2025-03-21 10:29:31,550 - INFO - Set random seed to 42
+2025-03-21 10:29:31,550 - INFO - Preparing datasets...
+2025-03-21 10:29:46,216 - INFO - Data loaders prepared. Feature dimension: 105
+2025-03-21 10:29:46,216 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-21 10:29:46,217 - INFO - Successfully imported model class: simple_cnn
+2025-03-21 10:29:46,217 - INFO - Initializing Classifier
+2025-03-21 10:29:46,237 - INFO - Compiling model with torch.compile()...
+2025-03-21 10:29:47,611 - INFO - Model compiled successfully
+2025-03-21 10:29:47,615 - INFO - TensorBoard logs will be saved to saved_models/simple_cnn/logs
+2025-03-21 10:29:47,670 - INFO - Using GPU for training
+2025-03-21 10:29:47,698 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-21 10:29:47,703 - INFO - Model Summary:
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _orig_mod            | Classifier | 2.1 M  | train
+1 | _orig_mod.cnn_layers | Sequential | 2.1 M  | train
+2 | _orig_mod.classifier | Sequential | 8.3 K  | train
+------------------------------------------------------------
+2.1 M     Trainable params
+0         Non-trainable params
+2.1 M     Total params
+8.273     Total estimated model params size (MB)
+42        Modules in train mode
+0         Modules in eval mode
+2025-03-21 10:29:47,703 - INFO - Starting training...
+2025-03-21 10:30:46,962 - INFO - Training completed. Final model saved to saved_models/simple_cnn/final-fraud-classifier.pt
+2025-03-21 10:30:46,963 - INFO - 
+Evaluating model on validation set...
+2025-03-21 10:31:14,678 - INFO - 
+Validation Set Classification Report:
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.87      0.72      0.79      9587
+       Fraud       0.14      0.29      0.19      1472
+
+    accuracy                           0.66     11059
+   macro avg       0.50      0.51      0.49     11059
+weighted avg       0.77      0.66      0.71     11059
+
+2025-03-21 10:31:14,678 - INFO - Generating test predictions...
+2025-03-21 10:31:38,996 - INFO - Test predictions saved to saved_models/simple_cnn/2025.03.21_10.29.31_simple_cnn_test.csv
+2025-03-21 10:31:38,996 - INFO - Training and evaluation complete!
