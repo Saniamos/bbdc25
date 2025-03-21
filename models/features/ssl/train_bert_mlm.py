@@ -12,12 +12,14 @@ from bert import TransactionBERTModel
 from dataloader import prepare_dataset, load_all
 
 
-def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_all):
-    # Set seed for reproducibility
+def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_fn=load_all, 
+                              persistent_workers=True, pin_memory=True, prefetch_factor=2):
+    """
+    Prepare optimized dataloaders for hyperparameter search
+    """
     pl.seed_everything(seed)
     
-    # Prepare datasets
-    print("Loading and preparing datasets...")
+    # Prepare dataset
     dataset = prepare_dataset(data_version, load_fn)
     
     # Get all labels to create a stratified split
@@ -43,16 +45,16 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
     feature_dim = dataset.feature_dim
     print(f"Feature dimension: {feature_dim}")
     
-    # Create data loaders
-    print("Creating data loaders...")
+    # Create optimized DataLoaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
-        drop_last=True,
-        prefetch_factor=3
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        drop_last=True  # Improves performance by avoiding small batches
     )
     
     val_loader = DataLoader(
@@ -60,11 +62,11 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True,
-        drop_last=True,
-        prefetch_factor=3
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None
     )
-
+    
     return train_loader, val_loader, feature_dim
 
 

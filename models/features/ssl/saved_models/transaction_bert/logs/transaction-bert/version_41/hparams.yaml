@@ -1,0 +1,8 @@
+dropout: 0.1
+feature_dim: 105
+fine_tune_ffn: true
+learning_rate: 0.0001
+model_size: base
+use_gradient_checkpointing: true
+warmup_steps: 1000
+weight_decay: 0.01
