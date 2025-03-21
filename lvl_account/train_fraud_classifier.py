@@ -12,11 +12,8 @@ from sklearn.metrics import classification_report
 import logging
 import datetime
 
-# Add parent directory to path to import from SSL module
-import sys
-sys.path.append('./models/features/ssl')
-from dataloader import prepare_dataset, load_train_val, load_test
-from train_bert_mlm import prep_hpsearch_dataloaders
+from ssl.dataloader import prepare_dataset, load_train_val, load_test
+from ssl.train_bert_mlm import prep_hpsearch_dataloaders
 
 # Global constants for logging
 LOG_DIR = "logs"

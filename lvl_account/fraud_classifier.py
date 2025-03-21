@@ -4,11 +4,7 @@ from torch import nn
 import numpy as np
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc, f1_score
 import warnings
-
-# Add parent directory to path to import from SSL module
-import sys
-sys.path.append('./models/features/ssl') # we need to do this weird thing, as the scripts inside of the task folder should also be able to run on their own
-from bert import TransactionBERTModel
+from ssl.bert import TransactionBERTModel
 
 # Try to import Flash Attention - if available
 try:
