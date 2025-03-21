@@ -111,21 +111,14 @@ class Classifier(pl.LightningModule):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def forward(self, x, mask=None):
+    def forward(self, x):
         """
         Args:
-            x: Transaction sequences [batch_size, seq_len, feature_dim]
-            mask: Optional mask for valid positions [batch_size, seq_len]
-            
+            x: Transaction sequences [batch_size, seq_len, feature_dim]            
         Returns:
             Fraud probability logits
         """
         batch_size, seq_len, _ = x.shape
-        
-        # Apply masking if provided - efficient implementation
-        if mask is not None:
-            # Apply masking more efficiently - avoiding expand_as which creates new tensors
-            x = x * mask.unsqueeze(-1)
         
         # Permute to [batch_size, feature_dim, seq_len] for Conv1d
         x = x.permute(0, 2, 1)
@@ -142,11 +135,8 @@ class Classifier(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
-        # Create sequence mask (identifies non-padding elements)
-        seq_mask = torch.any(x != 0, dim=-1).float()  # [batch_size, seq_len]
-        
         # Forward pass
-        logits = self(x, seq_mask)
+        logits = self(x)
         y = y.float()  # Ensure labels are float for BCE loss
         
         # Calculate weighted BCE loss - giving higher weight to minority class (fraud)
@@ -165,11 +155,8 @@ class Classifier(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
-        # Create sequence mask - optimized
-        seq_mask = torch.any(x != 0, dim=-1).float()
-        
         # Forward pass
-        logits = self(x, seq_mask)
+        logits = self(x)
         y = y.float()
         
         # Calculate weighted BCE loss for consistency with training
@@ -182,12 +169,7 @@ class Classifier(pl.LightningModule):
         # For proper evaluation metrics, use unweighted predictions
         probs = torch.sigmoid(logits.view(-1))
         preds = (probs > 0.5).float()
-        
-        # Calculate accuracy
-        correct = (preds == y.view(-1)).float().sum()
-        total = y.numel()
-        accuracy = correct / total
-        
+                
         # Calculate F1 score specifically for fraud class (class 1)
         y_true = y.view(-1)
         y_pred = preds
@@ -208,17 +190,12 @@ class Classifier(pl.LightningModule):
         # Log metrics
         self.log_dict({
             "val_loss": val_loss, 
-            "val_acc": accuracy,
-            "val_fraud_precision": fraud_precision,
-            "val_fraud_recall": fraud_recall,
             "val_fraud_f1": fraud_f1
         }, prog_bar=True, sync_dist=True)
         
         return {
             "val_loss": val_loss,
             "val_fraud_f1": fraud_f1,
-            "val_fraud_precision": fraud_precision,
-            "val_fraud_recall": fraud_recall
         }
     
     def configure_optimizers(self):
@@ -262,11 +239,8 @@ class Classifier(pl.LightningModule):
         """
         _, _, x, _ = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
         
-        # Create sequence mask - optimized
-        seq_mask = torch.any(x != 0, dim=-1).float()
-        
         # Forward pass
-        logits = self(x, seq_mask)
+        logits = self(x)
         
         # Get probabilities
         probs = torch.sigmoid(logits)

@@ -316,7 +316,7 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
     dataset = prepare_dataset(data_version, load_fn, **kwargs)
     
     # Get all labels to create a stratified split
-    all_labels = dataset.get_fraud_labels_idx()
+    all_labels = dataset.get_fraud_labels()
     
     # Create stratified train/validation indices
     indices = np.arange(len(dataset))
@@ -338,26 +338,27 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
     feature_dim = dataset.feature_dim
     log_fn(f"Feature dimension: {feature_dim}")
     
-    # Create optimized DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
+    common_args = dict(
         batch_size=batch_size,
-        shuffle=True,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=persistent_workers if num_workers > 0 else False,
         prefetch_factor=prefetch_factor if num_workers > 0 else None,
-        drop_last=True  # Improves performance by avoiding small batches
+    )
+
+    # Create optimized DataLoaders
+    train_loader = DataLoader(
+        train_dataset,
+        shuffle=True,
+        drop_last=True,  # Improves performance by avoiding small batches
+        **common_args
     )
     
     val_loader = DataLoader(
         val_dataset,
-        batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers if num_workers > 0 else False,
-        prefetch_factor=prefetch_factor if num_workers > 0 else None
+        drop_last=True,  # Improves performance by avoiding small batches
+        **common_args
     )
     
     return train_loader, val_loader, feature_dim
