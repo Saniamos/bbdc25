@@ -335,8 +335,9 @@ class Classifier(pl.LightningModule):
         return logits
     
     def training_step(self, batch, batch_idx):
-        _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
-        
+        # Updated for dictionary return from __getitem__
+        x = batch['padded_features']
+        y = batch['label']
         # Create sequence mask (identifies non-padding elements)
         seq_mask = (x.sum(dim=-1) != 0).float()  # [batch_size, seq_len]
         
@@ -354,7 +355,9 @@ class Classifier(pl.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        _, _, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
+        # Updated for dictionary return from __getitem__
+        x = batch['padded_features']
+        y = batch['label']
         
         # Create sequence mask
         seq_mask = (x.sum(dim=-1) != 0).float()  # [batch_size, seq_len]
@@ -388,18 +391,8 @@ class Classifier(pl.LightningModule):
         return optimizer
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        """
-        Prediction step for generating fraud probabilities and predictions.
-        
-        Args:
-            batch: The input batch from the dataloader
-            batch_idx: The batch index
-            dataloader_idx: The dataloader index (if using multiple)
-            
-        Returns:
-            Dictionary containing probabilities and binary predictions
-        """
-        _, _, x, _ = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
+        # Updated for dictionary return from __getitem__
+        x = batch['padded_features']
         
         # Create sequence mask (identifies non-padding elements)
         seq_mask = (x.sum(dim=-1) != 0).float()  # [batch_size, seq_len]

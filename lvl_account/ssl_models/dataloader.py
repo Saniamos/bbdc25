@@ -13,9 +13,11 @@ import numpy as np
 import gc
 
 # Columns that can contain NA values
-NA_COLS = ['External', 'External_Type']
+NA_COLS = ['External', 'External_Type']#
+# Columns to exclude from feature columns
 EXCLUDE_COLS = ['AccountID', 'External']
 
+# as determined by uploads, see readme
 N_FRAUDSTERS = {
     'train': 1411,
     'val': 1472,
@@ -23,6 +25,7 @@ N_FRAUDSTERS = {
 }
 
 class AccountTransactionDataset(Dataset):
+    # @profile
     def __init__(self, 
                  features_df: pd.DataFrame, 
                  labels_df: pd.DataFrame, 
@@ -31,7 +34,7 @@ class AccountTransactionDataset(Dataset):
                  normalize=True,
                  mask=True,
                  log_fn=print,
-                 precompute=True):
+                 precompute=False):
         """
         Initialize the dataset with feature and label dataframes.
         
@@ -68,10 +71,16 @@ class AccountTransactionDataset(Dataset):
         
         # Validate that both DataFrames have required columns
         self._validate_dataframes(features_df, labels_df)
-        
+
         # Store fraud labels and account IDs
-        self.fraud_bools = labels_df['Fraudster'].values 
+        self.fraud_bools = labels_df['Fraudster'].values
         self.account_ids = labels_df['AccountID'].values
+        _tmp_enc = LabelEncoder().fit(list(features_df['AccountID'].values) + list(features_df['External'].unique()))
+        log_fn(f'Total of {_tmp_enc.classes_.shape[0]} unique accounts')
+        self.account_ids_enc = _tmp_enc.transform(labels_df['AccountID'])
+        features_df['AccountID'] = _tmp_enc.transform(features_df['AccountID'])
+        features_df['External'] = _tmp_enc.transform(features_df['External'])
+
         
         # Determine feature columns
         self.feature_cols = self._get_feature_columns(features_df, feature_cols)
@@ -89,7 +98,7 @@ class AccountTransactionDataset(Dataset):
         self._log_dataset_stats(features_df, labels_df, log_fn)
         
         # Check for NaN values (excluding allowed columns)
-        if features_df.drop(NA_COLS, axis=1).isnull().values.any():
+        if features_df.drop(NA_COLS, axis=1).isnull().any().any():
             raise ValueError('NaN values found in features_df')
 
         # Free memory
@@ -192,12 +201,41 @@ class AccountTransactionDataset(Dataset):
                 - label: Binary fraud label (0 or 1)
         """
         if self.precompute:
-            # Simply return precomputed tensors
-            return self.precomputed_data[idx]
+            # Get precomputed data for this account
+            item = self.precomputed_data[idx]
+        else:
+            # Process account data on-the-fly
+            item = self._process_account_data(idx=idx)
         
-        # Process account data on-the-fly
-        return self._process_account_data(idx=idx)
+        # Apply padding here instead of in _process_account_data
+        features = item['features']
+        
+        # Create padded tensor
+        seq_len = features.shape[0]
+        padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float16)
+        padded_features[:seq_len] = torch.from_numpy(features)
+        
+        # Apply masking if needed (on padded features)
+        if self.mask:
+            masked_features, masked_pos = self.mask_features(padded_features, seq_len)
+        else:
+            masked_features, masked_pos = torch.empty(0), torch.empty(0)
+        
+        _tmp_ext = item['external_account_ids_enc']
+        external_account_ids_enc = torch.zeros((self.max_seq_len, 1), dtype=torch.int)
+        external_account_ids_enc[:seq_len] = torch.from_numpy(_tmp_ext).unsqueeze(1).int()
+        
+        # Return the final item
+        # important: discard the feature entry, as that cannot be collated and is not needed
+        return dict(masked_features=masked_features,
+                    masked_pos=masked_pos,
+                    padded_features=padded_features,
+                    label=item['label'],
+                    account_id_enc=item['account_id_enc'],
+                    external_account_ids_enc=external_account_ids_enc)
     
+    
+    # @profile
     def _process_account_data(self, idx):
         """
         Process a single account's transactions into tensor format.
@@ -206,52 +244,28 @@ class AccountTransactionDataset(Dataset):
             idx: Index of the account in self.account_ids (used for getting label)
         
         Returns:
-            Tuple containing:
-                - masked_features: Masked tensor of transaction features
-                - masked_pos: Boolean tensor indicating masked positions
-                - padded_features: Original padded tensor of transaction features
-                - label: Binary fraud label (0 or 1)
+            Dictionary containing transaction features and metadata
         """
-        account_id = self.account_ids[idx]
+        account_id = self.account_ids_enc[idx]
         account_transactions = self.account_groups.get_group(account_id)
         
         # Extract features and convert to tensor
-        features = account_transactions[self.feature_cols][:self.max_seq_len].to_numpy().astype(np.float16)
-        seq_len = features.shape[0]
-        
-        # Create padded tensor
-        padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float16)
-        padded_features[:seq_len] = torch.from_numpy(features)
-        
-        # Apply masking if needed
-        if self.mask:
-            masked_features, masked_pos = self.mask_features(padded_features, seq_len)
-        else:
-            masked_features = torch.empty(0)
-            masked_pos = torch.empty(0)
+        features = account_transactions[self.feature_cols][:self.max_seq_len].to_numpy()
         
         # Get label for this account
         label = torch.Tensor([self.fraud_bools[idx]])
+
+        # encode the account id belonging to these transactions
+        account_id_enc = torch.Tensor([account_id])
         
-        return masked_features, masked_pos, padded_features, label
-    
-    # def simple_mask_features(self, features, seq_len):
-    #     if not self.mask:
-    #         return features, torch.zeros_like(features, dtype=torch.bool)
-        
-    #     # Quick masking: single pass, no loops
-    #     masked_features = features.clone()
-    #     masked_pos = torch.zeros_like(features, dtype=torch.bool)
-        
-    #     # Mask valid positions only (non-padding)
-    #     valid_features = features[:seq_len]
-        
-    #     # Simple random masking (15% of features)
-    #     mask = (torch.rand_like(valid_features) < 0.15)
-    #     masked_pos[:seq_len] = mask
-    #     masked_features[:seq_len][mask] = 0.0
-        
-    #     return masked_features, masked_pos
+        # encode the external account ids belonging to each transactions
+        ext_enc = account_transactions['External'][:self.max_seq_len].to_numpy()
+
+        # Padding will be applied in __getitem__
+        return dict(features=features,
+                    label=label,
+                    account_id_enc=account_id_enc,
+                    external_account_ids_enc=ext_enc)
 
     def mask_features(self, features, seq_len):
         """
@@ -456,12 +470,12 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
 
 
 if __name__ == "__main__":
-    num_workers = 4
+    num_workers = 0
     val_loader = DataLoader(
-        prepare_dataset('ver05', mask=False, log_fn=print, fn=load_val),
+        prepare_dataset('ver05', mask=False, log_fn=print, fn=load_val, max_seq_len=1024),
         shuffle=False,
         drop_last=False,
-        batch_size=128,
+        batch_size=32,
         num_workers=num_workers,
         pin_memory=True,
         persistent_workers=True if num_workers > 0 else False,
@@ -471,16 +485,17 @@ if __name__ == "__main__":
     account_ids = []
     fraud_bools = []
     for i, batch in enumerate(val_loader):
-        _, _, _, fraud, account_id = batch
-        account_ids.extend(account_id)
-        fraud_bools.extend(fraud.flatten())
+        account_id, label = batch['account_id_enc'], batch['label']
+        # masked_features, masked_pos, padded_features, label, account_id, external_account_ids_enc = batch
+        account_ids.extend(account_id.flatten())
+        fraud_bools.extend(label.flatten())
 
     account_ids = np.array(account_ids)
     fraud_bools = np.array(fraud_bools)
 
     d = val_loader.dataset
 
-    account_ids_accoring_to_prop = np.array(d.account_ids)
+    account_ids_accoring_to_prop = np.array(d.account_ids_enc)
     fraud_bools_according_to_prop = np.array(d.fraud_bools)
 
     print(account_ids != account_ids_accoring_to_prop)

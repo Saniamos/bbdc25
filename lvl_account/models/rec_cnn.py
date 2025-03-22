@@ -4,6 +4,13 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 
+# as determined by uploads, see readme
+N_FRAUDSTERS = {
+    'train': 1411,
+    'val': 1472,
+    'test': 1267
+}
+
 class Classifier(pl.LightningModule):
     """
     Recurrent CNN-based model for fraud detection in transaction sequences.
@@ -20,7 +27,8 @@ class Classifier(pl.LightningModule):
         hidden_dim=128,
         warmup_steps=100,
         max_lr=5e-4,
-        min_lr=1e-5
+        min_lr=1e-5,
+        num_accounts=50_000
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -33,10 +41,11 @@ class Classifier(pl.LightningModule):
         self.max_lr = max_lr
         self.min_lr = min_lr
         
-        # Dictionary to store account_id -> fraud_score mappings
-        self.account_predictions = {}
         # Default value for accounts with no previous predictions
-        self.default_prediction = 0.0
+        self.default_prediction = 0.5
+        # Dictionary to store account_id -> fraud_score mappings
+        self.reset_account_pred_state(num_accounts=num_accounts)
+        
         
         # Build the CNN model with 8 layers
         # Add +1 to feature_dim to account for the additional fraud score feature
@@ -117,49 +126,38 @@ class Classifier(pl.LightningModule):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def add_prediction_feature(self, x, account_ids):
+    def add_prediction_feature(self, x, external_account_ids_enc):
         """
         Add a feature channel to input data containing previous fraud predictions
         
         Args:
             x: Transaction sequences [batch_size, seq_len, feature_dim]
-            account_ids: List of account IDs corresponding to each sequence in the batch
+            external_account_ids_enc: List of account IDs corresponding to each sequence in the batch
             
         Returns:
             Enhanced input with prediction feature [batch_size, seq_len, feature_dim + 1]
         """
-        batch_size, seq_len, _ = x.shape
-        
-        # Create a tensor to hold the fraud score feature
-        fraud_scores = torch.zeros(batch_size, seq_len, 1, device=x.device)
-        
-        # Fill in fraud scores for each account in the batch
-        for i, account_id in enumerate(account_ids):
-            # Get previous prediction or default value
-            account_id_key = str(account_id)  # Convert to string for dict keys
-            score = self.account_predictions.get(account_id_key, self.default_prediction)
-            # Fill the entire sequence for this account with the prediction
-            fraud_scores[i, :, 0] = score
-            
-        # Concatenate the fraud score feature to the input
-        enhanced_x = torch.cat([x, fraud_scores], dim=2)
-        
-        return enhanced_x
 
-    def forward(self, x, account_ids=None):
+        fraud_scores = self.account_predictions[external_account_ids_enc]
+        if self.overwrite_rand_account_predictions:
+            fraud_scores = torch.where(torch.rand_like(fraud_scores) < 0.15, torch.rand_like(fraud_scores), fraud_scores)
+
+        return torch.cat([x, fraud_scores], dim=2)
+
+    def forward(self, x, external_account_ids_enc=None):
         """
         Args:
             x: Transaction sequences [batch_size, seq_len, feature_dim]
-            account_ids: Optional list of account IDs for the batch
+            external_account_ids_enc: Optional list of account IDs for the batch
             
         Returns:
             Fraud probability logits
         """
         batch_size, seq_len, _ = x.shape
         
-        # If account_ids provided, add fraud predictions as features
-        if account_ids is not None:
-            x = self.add_prediction_feature(x, account_ids)
+        # If external_account_ids_enc provided, add fraud predictions as features
+        if external_account_ids_enc is not None:
+            x = self.add_prediction_feature(x, external_account_ids_enc)
         else:
             # No account IDs provided - add zeros as placeholder
             zeros = torch.zeros(batch_size, seq_len, 1, device=x.device)
@@ -177,7 +175,7 @@ class Classifier(pl.LightningModule):
         
         return logits
     
-    def update_account_predictions(self, account_ids, predictions):
+    def update_account_predictions(self, account_ids:torch.Tensor, predictions):
         """
         Update the account predictions dictionary with new predictions
         
@@ -185,58 +183,54 @@ class Classifier(pl.LightningModule):
             account_ids: List of account IDs
             predictions: Corresponding predictions (probabilities)
         """
-        # Update our prediction cache
-        for account_id, pred in zip(account_ids, predictions):
-            self.account_predictions[str(account_id)] = float(pred)
-    
+        self.account_predictions[account_ids.int().squeeze()] = predictions.squeeze()
+        
     def training_step(self, batch, batch_idx):
-        masked_seqs, masked_pos, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
+        x = batch['padded_features']
+        y = batch['label']
+        account_ids = batch['account_id_enc']
+        external_account_ids_enc = batch['external_account_ids_enc']
         
-        # Extract account IDs from the batch
-        # Note: This assumes account IDs are available in the dataset
-        # You'll need to modify your dataloader to include this information
-        try:
-            account_ids = batch[4] if len(batch) > 4 else None
-        except:
-            account_ids = None  # Fallback if not available
-        
-        # Forward pass with account IDs to incorporate previous predictions
-        logits = self(x, account_ids)
+        logits = self(x, external_account_ids_enc)
         y = y.float()  # Ensure labels are float for BCE loss
         
-        # Calculate weighted BCE loss
-        pos_weight = torch.tensor([7.33], device=logits.device)
-        loss = F.binary_cross_entropy_with_logits(
+        pos_weight = torch.tensor([8], device=logits.device)
+        bce_loss = F.binary_cross_entropy_with_logits(
             logits.view(-1), y.view(-1), 
             pos_weight=pos_weight
         )
         
+        # New regularization term: enforce fraud rate to be 12.76% per batch
+        probs = torch.sigmoid(logits.view(-1))
+        desired_rate = 0.1276
+        fraud_reg_loss = (probs.mean() - desired_rate) ** 2
+        
+        loss = bce_loss + 0.3 * fraud_reg_loss
+        
         # Update account predictions for next batch/epoch
-        if account_ids is not None:
-            with torch.no_grad():
-                probs = torch.sigmoid(logits.view(-1)).detach().cpu().numpy()
-                self.update_account_predictions(account_ids, probs)
+        with torch.no_grad():
+            probs_detached = torch.sigmoid(logits.view(-1)).detach()
+            self.update_account_predictions(account_ids, probs_detached)
           
-        # Log metrics
+        # Log metrics including the new regularization loss
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
+        self.log("fraud_reg_loss", fraud_reg_loss, prog_bar=True, on_epoch=True, sync_dist=True)
         
         return loss
 
     def validation_step(self, batch, batch_idx):
-        masked_seqs, masked_pos, x, y = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
-        
-        # Extract account IDs from the batch (similar to training_step)
-        try:
-            account_ids = batch[4] if len(batch) > 4 else None
-        except:
-            account_ids = None  # Fallback if not available
+        # Updated for dictionary return from __getitem__
+        x = batch['padded_features']
+        y = batch['label']
+        account_ids = batch['account_id_enc']
+        external_account_ids_enc = batch['external_account_ids_enc']
         
         # Forward pass
-        logits = self(x, account_ids)
+        logits = self(x, external_account_ids_enc)
         y = y.float()
         
         # Calculate weighted BCE loss
-        pos_weight = torch.tensor([7.33], device=logits.device)
+        pos_weight = torch.tensor([8], device=logits.device)
         val_loss = F.binary_cross_entropy_with_logits(
             logits.view(-1), y.view(-1),
             pos_weight=pos_weight
@@ -247,10 +241,9 @@ class Classifier(pl.LightningModule):
         preds = (probs > 0.5).float()
         
         # Update account predictions for next validation batch
-        if account_ids is not None:
-            with torch.no_grad():
-                probs_cpu = probs.detach().cpu().numpy()
-                self.update_account_predictions(account_ids, probs_cpu)
+        with torch.no_grad():
+            probs_cpu = probs.detach()
+            self.update_account_predictions(account_ids, probs_cpu)
         
         # Calculate F1 score for fraud class
         y_true = y.view(-1)
@@ -316,19 +309,13 @@ class Classifier(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        """
-        Prediction step for generating fraud probabilities and predictions.
-        """
-        masked_seqs, masked_pos, x, _ = batch  # Unpack (masked_seqs, masked_pos, orig_seqs, label)
-        
-        # Extract account IDs from the batch
-        try:
-            account_ids = batch[4] if len(batch) > 4 else None
-        except:
-            account_ids = None  # Fallback if not available
+        # Updated for dictionary return from __getitem__
+        x = batch['padded_features']
+        account_ids = batch['account_id_enc']
+        external_account_ids_enc = batch['external_account_ids_enc']
         
         # Forward pass
-        logits = self(x, account_ids)
+        logits = self(x, external_account_ids_enc)
         
         # Get probabilities
         probs = torch.sigmoid(logits)
@@ -337,12 +324,33 @@ class Classifier(pl.LightningModule):
         preds = (probs > 0.5).float()
         
         # Update account predictions
-        if account_ids is not None:
-            with torch.no_grad():
-                probs_cpu = probs.detach().cpu().numpy()
-                self.update_account_predictions(account_ids, probs_cpu)
+        with torch.no_grad():
+            probs_cpu = probs.detach()
+            self.update_account_predictions(account_ids, probs_cpu)
         
         return {"probs": probs, "preds": preds}
+
+    @property
+    def account_predictions(self):
+        return getattr(self, self._cur_pred_key)
+
+    def reset_account_pred_state(self, num_accounts=50_000):
+        # essentially: create a store for account predictions and switch depending on the phase
+        self.register_buffer("account_pred_train", torch.full((num_accounts,), self.default_prediction, dtype=torch.float16))
+        self.register_buffer("account_pred_val", torch.full((num_accounts,), self.default_prediction, dtype=torch.float16))
+        self.register_buffer("account_pred_test", torch.full((num_accounts,), self.default_prediction, dtype=torch.float16))
+
+    def on_train_epoch_start(self):
+        self.overwrite_rand_account_predictions = True
+        self._cur_pred_key = "account_pred_train"
+
+    def on_validation_epoch_start(self):
+        self.overwrite_rand_account_predictions = False
+        self._cur_pred_key = "account_pred_val"
+
+    def on_test_epoch_start(self):
+        self.overwrite_rand_account_predictions = False
+        self._cur_pred_key = "account_pred_test"
 
 
 if __name__ == "__main__":

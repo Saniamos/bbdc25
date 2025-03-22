@@ -155,7 +155,9 @@ class TransactionBERTModel(pl.LightningModule):
         return reconstructed_seqs
     
     def training_step(self, batch, batch_idx):
-        masked_seqs, masked_pos, orig_seqs, _ = batch
+        masked_seqs = batch['masked_features']
+        masked_pos = batch['masked_pos']
+        orig_seqs = batch['padded_features']
         
         # Get reconstructed sequences
         recon_seqs = self(masked_seqs, masked_pos)
@@ -169,7 +171,9 @@ class TransactionBERTModel(pl.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        masked_seqs, masked_pos, orig_seqs, _ = batch
+        masked_seqs = batch['masked_features']
+        masked_pos = batch['masked_pos']
+        orig_seqs = batch['padded_features']
         
         # Get reconstructed sequences
         recon_seqs = self(masked_seqs, masked_pos)

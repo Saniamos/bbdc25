@@ -81,7 +81,10 @@ def main(model_path, data_version, output_dir, seed):
     
     # Plot selected examples (2 fraud, 2 non-fraud)
     for i, (idx, is_fraud, account_id) in enumerate(zip(selected_indices, fraud_status, selected_account_ids)):
-        masked_seqs, masked_pos, orig_seqs, label = val_dataset[idx]
+        masked_seqs = val_dataset[idx]['masked_features']
+        masked_pos = val_dataset[idx]['masked_pos']
+        orig_seqs = val_dataset[idx]['padded_features']
+
         account_type = "Fraudster" if is_fraud else "Non-fraudster"
         
         # Get only the first 100 timesteps for clarity in visualization

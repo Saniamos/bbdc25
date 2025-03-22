@@ -71,7 +71,7 @@ def import_model_class(python_file_base, logger):
         raise ImportError(f"Could not import model class '{python_file_base}': {e}")
 
 
-def train_model(logger, model_class, data_version, pretrained_model_path, freeze_bert, 
+def train_model(logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
                continue_from_checkpoint, num_train_epochs, val_every_epoch, 
                learning_rate, weight_decay, patience, dry_run, output_dir, common_args):
     """Train the model and save checkpoints"""
@@ -80,7 +80,7 @@ def train_model(logger, model_class, data_version, pretrained_model_path, freeze
     
     
     logger.info("Loading training data...")
-    train_dataset = prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_train)
+    train_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, log_fn=logger.info, fn=load_train)
     train_loader = DataLoader(
         train_dataset, 
         shuffle=True,
@@ -89,7 +89,7 @@ def train_model(logger, model_class, data_version, pretrained_model_path, freeze
     )    
     
     logger.info("Loading validation data...")
-    val_dataset = prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_val)
+    val_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, log_fn=logger.info, fn=load_val)
     val_loader = DataLoader(
         val_dataset, 
         shuffle=False,
@@ -134,14 +134,14 @@ def train_model(logger, model_class, data_version, pretrained_model_path, freeze
     # Initialize the model with appropriate arguments
     model = ModelClass(**model_kwargs)
 
-    # Apply torch.compile if available (PyTorch 2.0+)
-    if hasattr(torch, 'compile'):
-        try:
-            logger.info("Compiling model with torch.compile()...")
-            model = torch.compile(model, mode="reduce-overhead")
-            logger.info("Model compiled successfully")
-        except Exception as e:
-            logger.warning(f"Model compilation failed: {e}. Training with uncompiled model.")
+    # # Apply torch.compile if available (PyTorch 2.0+)
+    # if hasattr(torch, 'compile'):
+    #     try:
+    #         logger.info("Compiling model with torch.compile()...")
+    #         model = torch.compile(model, mode="reduce-overhead")
+    #         logger.info("Model compiled successfully")
+    #     except Exception as e:
+    #         logger.warning(f"Model compilation failed: {e}. Training with uncompiled model.")
         
     # Early stopping - using F1 score as our only primary metric
     early_stop_callback = EarlyStopping(
@@ -212,7 +212,7 @@ def probs_to_preds(probs, top_n):
     preds[np.argsort(-probs)[:top_n]] = 1
     return preds
 
-def evaluate_on_validation(logger, trainer, model, data_version, common_args, val_dataset):
+def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
     """Evaluate the model on the validation set and report metrics"""
     
     logger.info('---------------------------------------------------')
@@ -223,18 +223,24 @@ def evaluate_on_validation(logger, trainer, model, data_version, common_args, va
         shuffle=False,
         drop_last=False,
         **common_args
-    )    
-      
-    val_predictions = trainer.predict(model, val_loader_pred)
+    )
+    
+    n = 0
+    if hasattr(model, 'reset_account_pred_state'):
+        model.reset_account_pred_state()
+        n = 4
+    for i in range(n):
+        logger.info(f"=== Pass {i} ===================")
+        # Use the PyTorch Lightning predict method which calls our predict_step
+        val_predictions = trainer.predict(model, val_loader_pred)
 
-    # Gather predictions and true labels
-    val_preds = torch.cat([batch["preds"] for batch in val_predictions]).cpu().numpy().astype(int).flatten()
-    val_labels = val_loader_pred.dataset.get_fraud_labels()[:len(val_preds)]  # Ensure same length
+        # Gather predictions and true labels
+        val_preds = torch.cat([batch["preds"] for batch in val_predictions]).cpu().numpy().astype(int).flatten()
+        val_labels = val_loader_pred.dataset.get_fraud_labels()[:len(val_preds)]  # Ensure same length
 
-    # Print classification report
-    report = classification_report(val_labels, val_preds, target_names=["Non-Fraud", "Fraud"])
-    logger.info("\nValidation Set Classification Report:\n" + report)
-
+        # Print classification report
+        report = classification_report(val_labels, val_preds, target_names=["Non-Fraud", "Fraud"])
+        logger.info("\nValidation Set Classification Report:\n" + report)
 
     val_probs = torch.cat([batch["probs"] for batch in val_predictions]).cpu().numpy().astype(int).flatten()
     n = N_FRAUDSTERS['val']
@@ -249,7 +255,7 @@ def evaluate_on_validation(logger, trainer, model, data_version, common_args, va
         torch.cuda.empty_cache()
 
 
-def generate_test_predictions(logger, trainer, model, data_version, common_args, skeleton_file):
+def generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file):
     """Generate predictions on the test set and save to CSV"""
     
     logger.info('---------------------------------------------------')
@@ -257,14 +263,20 @@ def generate_test_predictions(logger, trainer, model, data_version, common_args,
     
     logger.info("Loading test data...")
     test_loader = DataLoader(
-        prepare_dataset(data_version, mask=False, log_fn=logger.info, fn=load_test),
+        prepare_dataset(data_version, mask=False, precompute=precompute, log_fn=logger.info, fn=load_test),
         shuffle=False,
         drop_last=False,
         **common_args
     )
-    
-    # Use the PyTorch Lightning predict method which calls our predict_step
-    predictions = trainer.predict(model, test_loader)
+
+    n = 0
+    if hasattr(model, 'reset_account_pred_state'):
+        model.reset_account_pred_state()
+        n = 3
+    for i in range(n):
+        logger.info(f"=== Pass {i} ===================")
+        # Use the PyTorch Lightning predict method which calls our predict_step
+        predictions = trainer.predict(model, test_loader)
 
     # Gather predictions and account ids labels
     preds = torch.cat([batch["preds"] for batch in predictions]).cpu().numpy().astype(int).flatten()
@@ -305,11 +317,12 @@ def generate_test_predictions(logger, trainer, model, data_version, common_args,
 @click.command()
 # Data parameters
 @click.option("--data_version", default="ver05", type=str, help="Data version to use")
+@click.option("--precompute", default=True, is_flag=True, help="If True, precompute features and save to disk")
 @click.option("--pretrained_model_path", required=False, default=None, type=str, 
               help="Path to pre-trained SSL model (only needed for certain model types)")
 
 # Model parameters
-@click.option("--model_class", default="simple_cnn", type=str, 
+@click.option("--model_class", default="rec_cnn", type=str, 
               help="Model class to use (module.ClassName format)")
 @click.option("--freeze_bert", is_flag=True, default=True, help="Whether to freeze BERT weights")
 
@@ -317,7 +330,7 @@ def generate_test_predictions(logger, trainer, model, data_version, common_args,
 
 # Training parameters
 @click.option("--batch_size", default=128, type=int, help="Batch size for training")
-@click.option("--num_train_epochs", default=15, type=int, help="Number of training epochs")
+@click.option("--num_train_epochs", default=1, type=int, help="Number of training epochs")
 @click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
 @click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
 @click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
@@ -332,7 +345,7 @@ def generate_test_predictions(logger, trainer, model, data_version, common_args,
 @click.option("--skip_train", is_flag=True, help="Skip training and use existing model")
 @click.option("--skip_validation", is_flag=True, help="Skip validation evaluation")
 @click.option("--skip_test", is_flag=True, help="Skip test prediction")
-def main(model_class, data_version, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
+def main(model_class, data_version, precompute, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
          num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
          skeleton_file, skip_train, skip_validation, skip_test):
     
@@ -369,7 +382,7 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     if not skip_train:
         # Train the model
         model, trainer, final_model_path, train_dataset, val_dataset = train_model(
-            logger, model_class, data_version, pretrained_model_path, freeze_bert, 
+            logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
             continue_from_checkpoint, num_train_epochs, val_every_epoch, 
             learning_rate, weight_decay, patience, dry_run, output_dir, common_args
         )
@@ -399,13 +412,12 @@ def main(model_class, data_version, pretrained_model_path, freeze_bert, continue
     
     if not skip_validation:            
         # Evaluate on validation set
-        evaluate_on_validation(logger, trainer, model, data_version, common_args, val_dataset)
+        evaluate_on_validation(logger, trainer, model, common_args, val_dataset)
         val_dataset.delete_cache()
 
-    
     if not skip_test:
         # Generate test predictions
-        generate_test_predictions(logger, trainer, model, data_version, common_args, skeleton_file)
+        generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file)
     
     logger.info("Process complete!")
 
