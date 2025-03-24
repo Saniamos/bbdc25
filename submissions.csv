@@ -5,3 +5,4 @@ file,online score,val score (weighted avg f1), f1 fraud,changelog
 2025.03.04_10.22.19_models.rf_test.csv modified,0.0,-,-,Contains only non-fraudsters for percentage calc reasons
 2025.03.21_15.38.02_simple_cnn_test.txt,0.9318555008210181,0.96,0.93,Simple CNN trained on ver05 train set
 2025.03.21_16.22.16_simple_cnn_test.csv,0.9338809034907597,-,0.935(Tensorboard),Simple CNN trained on a mix of train and val. Performance is not much better then per set. The classification report is skewed tho -> thats why i included the tensorboard log
+2025.03.24_13.04.48_attn_cnn2_test.csv,0.9330677290836653,0.96,0.94,CNN with multiple attention layers. The curious thing is that this model as the first in quite some time hase a balanced precision and recall for fraudsters. The model is trained on ver05 train set

@@ -63,7 +63,8 @@ Transactions of C2934430280
 917177    203  CASH_OUT   66520.96  C2934430280     None   809276.52   742755.56                        0          None   11   11.105272
 1026553   214   CASH_IN  243380.04  C2934430280     None   742755.56   986135.59                        0          None   22   12.402379
 
-It appears some transactions are missing in the data. i.e. i cannot come up with another explanation of why the newBalance is the same after an action that does not have zero amounts.
+It appears some transactions are missing in the data. i.e. i cannot come up with another explanation of why the newBalance is the same after an action that does not have zero amounts. 
+This happens for non-fraud accounts as well -> i assume the organizers removed random transactions to make the task harder. d
 
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
