@@ -135,19 +135,20 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
     model = ModelClass(**model_kwargs)
 
     # # Apply torch.compile if available (PyTorch 2.0+)
-    # if hasattr(torch, 'compile'):
-    #     try:
-    #         logger.info("Compiling model with torch.compile()...")
-    #         model = torch.compile(model, mode="reduce-overhead")
-    #         logger.info("Model compiled successfully")
-    #     except Exception as e:
-    #         logger.warning(f"Model compilation failed: {e}. Training with uncompiled model.")
+    if hasattr(torch, 'compile'):
+        try:
+            logger.info("Compiling model with torch.compile()...")
+            model = torch.compile(model, mode="reduce-overhead")
+            logger.info("Model compiled successfully")
+        except Exception as e:
+            logger.warning(f"Model compilation failed: {e}. Training with uncompiled model.")
         
     # Early stopping - using F1 score as our only primary metric
     early_stop_callback = EarlyStopping(
-        monitor='val_loss',
+        monitor='val_fraud_f1', # range [0, 1]
         patience=patience,
-        mode='min',
+        min_delta=0,
+        mode='max',
     )
     
     # Setup tensorboard logger
@@ -160,11 +161,11 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
     # Setup checkpointing - using F1 score as our only primary metric
     base_pt_name = f'{tensorboard_logger.log_dir.replace(output_dir + "/", "")}/{model_class}'
     checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',
+        monitor='val_fraud_f1',
         dirpath=output_dir,
-        filename=base_pt_name + '-{epoch:02d}-{val_loss:.4f}',
+        filename=base_pt_name + '-{epoch:02d}-{val_fraud_f1:.4f}',
         save_top_k=3,
-        mode='min',
+        mode='max',
         save_weights_only=True
     )
     
@@ -204,7 +205,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    
+
     return model, trainer, final_model_path, train_dataset, val_dataset
 
 def probs_to_preds(probs, top_n):
@@ -225,14 +226,14 @@ def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
         **common_args
     )
     
-    n = 0
+    n = 1
     if hasattr(model, 'reset_account_pred_state'):
         model.reset_account_pred_state()
         n = 4
     for i in range(n):
         logger.info(f"=== Pass {i} ===================")
         # Use the PyTorch Lightning predict method which calls our predict_step
-        val_predictions = trainer.predict(model, val_loader_pred)
+        val_predictions = trainer.predict(model, val_loader_pred, ckpt_path="best")
 
         # Gather predictions and true labels
         val_preds = torch.cat([batch["preds"] for batch in val_predictions]).cpu().numpy().astype(int).flatten()
@@ -247,6 +248,17 @@ def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
     val_probs_prebs = probs_to_preds(val_probs, n)
     report = classification_report(val_labels, val_probs_prebs, target_names=["Non-Fraud", "Fraud"])
     logger.info(f"\nValidation Set Classification Report (top {n}):\n" + report)
+
+    # Save predictions   
+    account_ids = val_loader_pred.dataset.get_account_ids()[:len(val_preds)]  # Ensure same length
+    predictions_df = pd.DataFrame({
+        "AccountID": account_ids,
+        "Fraudster": val_preds.astype(int)
+    })
+    predictions_df['AccountID'] = predictions_df['AccountID'].str.split('yh').str[0]       
+    predictions_output = os.path.join(LOG_DIR, f"{LOG_BASENAME}_val.csv")
+    predictions_df.to_csv(predictions_output, index=False)
+    logger.info(f"Test predictions saved to {predictions_output}")
 
     # Free up memory
     del val_loader_pred, val_predictions
@@ -269,14 +281,14 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
         **common_args
     )
 
-    n = 0
+    n = 1
     if hasattr(model, 'reset_account_pred_state'):
         model.reset_account_pred_state()
         n = 3
     for i in range(n):
         logger.info(f"=== Pass {i} ===================")
         # Use the PyTorch Lightning predict method which calls our predict_step
-        predictions = trainer.predict(model, test_loader)
+        predictions = trainer.predict(model, test_loader, ckpt_path="best")
 
     # Gather predictions and account ids labels
     preds = torch.cat([batch["preds"] for batch in predictions]).cpu().numpy().astype(int).flatten()
@@ -317,7 +329,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 @click.command()
 # Data parameters
 @click.option("--data_version", default="ver05", type=str, help="Data version to use")
-@click.option("--precompute", default=True, is_flag=True, help="If True, precompute features and save to disk")
+@click.option("--precompute", default=False, is_flag=True, help="If True, precompute features and save to disk")
 @click.option("--pretrained_model_path", required=False, default=None, type=str, 
               help="Path to pre-trained SSL model (only needed for certain model types)")
 
@@ -331,7 +343,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 # Training parameters
 @click.option("--batch_size", default=128, type=int, help="Batch size for training")
 @click.option("--num_train_epochs", default=1, type=int, help="Number of training epochs")
-@click.option("--val_every_epoch", default=5, type=int, help="Number of training epochs after which to run validation")
+@click.option("--val_every_epoch", default=3, type=int, help="Number of training epochs after which to run validation")
 @click.option("--learning_rate", default=1e-4, type=float, help="Learning rate")
 @click.option("--weight_decay", default=0.01, type=float, help="Weight decay")
 

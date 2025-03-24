@@ -2,19 +2,38 @@ import torch
 import pytorch_lightning as pl
 from torch import nn
 import torch.nn.functional as F
-import numpy as np
 
-# as determined by uploads, see readme
-N_FRAUDSTERS = {
-    'train': 1411,
-    'val': 1472,
-    'test': 1267
-}
-
+class AttentionBlock(nn.Module):
+    """Self-attention block for sequence processing"""
+    def __init__(self, embed_dim, num_heads=4, dropout=0.1):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout, batch_first=True)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.ffn = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.SiLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.Linear(embed_dim * 4, embed_dim)
+        )
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, x):
+        # Self-attention with residual connection and normalization
+        attn_output, _ = self.attention(x, x, x)
+        x = x + self.dropout(attn_output)
+        x = self.norm1(x)
+        
+        # FFN with residual connection and normalization
+        ffn_output = self.ffn(x)
+        x = x + self.dropout(ffn_output)
+        x = self.norm2(x)
+        return x
+    
 class Classifier(pl.LightningModule):
     """
-    Recurrent CNN-based model for fraud detection in transaction sequences.
-    Uses its own predictions as additional features for future predictions.
+    Simple CNN-based model for fraud detection in transaction sequences.
+    Uses 8 layers of CNNs to process transaction data.
     """
     def __init__(
         self,
@@ -24,11 +43,10 @@ class Classifier(pl.LightningModule):
         learning_rate=1e-4,
         dropout=0.2,
         freeze_bert=False,  # Not used but kept for compatibility
-        hidden_dim=128,
+        hidden_dim=256,
         warmup_steps=100,
         max_lr=5e-4,
-        min_lr=1e-5,
-        num_accounts=50_000
+        min_lr=1e-5
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -41,17 +59,11 @@ class Classifier(pl.LightningModule):
         self.max_lr = max_lr
         self.min_lr = min_lr
         
-        # Default value for accounts with no previous predictions
-        self.default_prediction = 0.5
-        # Dictionary to store account_id -> fraud_score mappings
-        self.reset_account_pred_state(num_accounts=num_accounts)
-        
-        
         # Build the CNN model with 8 layers
-        # Add +1 to feature_dim to account for the additional fraud score feature
+        # Layer 1-2: First Conv Block - optimized to use SiLU activation for better gradients
         self.cnn_layers = nn.Sequential(
             # Layer 1
-            nn.Conv1d(feature_dim + 1, hidden_dim, kernel_size=3, padding=1, bias=False),
+            nn.Conv1d(feature_dim, hidden_dim, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim),
             nn.SiLU(inplace=True),  # More efficient activation function
             nn.Dropout(dropout),
@@ -104,15 +116,18 @@ class Classifier(pl.LightningModule):
         
         # Final classifier
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim, 64),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout/2),
-            nn.Linear(64, 1)
+            # Two attention blocks
+            AttentionBlock(hidden_dim, num_heads=4, dropout=dropout),
+            AttentionBlock(hidden_dim, num_heads=4, dropout=dropout),
+            
+            # Final classification layer
+            nn.Linear(hidden_dim, 1)
         )
         
         # Initialize weights for faster convergence
         self._init_weights()
-    
+        self.account_predictions = {}  # Initialize account predictions
+        
     def _init_weights(self):
         """Initialize weights using He initialization for better training dynamics"""
         for m in self.modules():
@@ -126,126 +141,60 @@ class Classifier(pl.LightningModule):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def add_prediction_feature(self, x, external_account_ids_enc):
-        """
-        Add a feature channel to input data containing previous fraud predictions
-        
-        Args:
-            x: Transaction sequences [batch_size, seq_len, feature_dim]
-            external_account_ids_enc: List of account IDs corresponding to each sequence in the batch
-            
-        Returns:
-            Enhanced input with prediction feature [batch_size, seq_len, feature_dim + 1]
-        """
-
-        fraud_scores = self.account_predictions[external_account_ids_enc]
-        if self.overwrite_rand_account_predictions:
-            fraud_scores = torch.where(torch.rand_like(fraud_scores) < 0.30, torch.rand_like(fraud_scores), fraud_scores)
-
-        return torch.cat([x, fraud_scores], dim=2)
-
-    def forward(self, x, external_account_ids_enc=None):
+    def forward(self, x):
         """
         Args:
-            x: Transaction sequences [batch_size, seq_len, feature_dim]
-            external_account_ids_enc: Optional list of account IDs for the batch
-            
+            x: Transaction sequences [batch_size, seq_len, feature_dim]            
         Returns:
             Fraud probability logits
         """
         batch_size, seq_len, _ = x.shape
         
-        # If external_account_ids_enc provided, add fraud predictions as features
-        if external_account_ids_enc is not None:
-            x = self.add_prediction_feature(x, external_account_ids_enc)
-        else:
-            # No account IDs provided - add zeros as placeholder
-            zeros = torch.zeros(batch_size, seq_len, 1, device=x.device)
-            x = torch.cat([x, zeros], dim=2)
-        
-        # Permute to [batch_size, feature_dim + 1, seq_len] for Conv1d
+        # Permute to [batch_size, feature_dim, seq_len] for Conv1d
         x = x.permute(0, 2, 1)
         
         # Apply CNN layers
         x = self.cnn_layers(x)
         
-        # Flatten and pass through classifier
-        x = x.view(batch_size, -1)
-        logits = self.classifier(x)
+        # Reshape for attention (from [batch_size, hidden_dim, 1] to [batch_size, 1, hidden_dim])
+        x = x.permute(0, 2, 1)
         
+        # Apply attention classifier (outputs shape [batch_size, 1, hidden_dim])
+        x = self.classifier(x)
+        
+        # Get final logits
+        logits = x.squeeze(1)
+
         return logits
     
-    def update_account_predictions(self, account_ids:torch.Tensor, predictions):
-        """
-        Update the account predictions dictionary with new predictions
-        
-        Args:
-            account_ids: List of account IDs
-            predictions: Corresponding predictions (probabilities)
-        """
-        self.account_predictions[account_ids.int().squeeze()] = predictions.squeeze()
-        
     def training_step(self, batch, batch_idx):
+        # Updated for dictionary return from __getitem__
         x = batch['padded_features']
         y = batch['label']
-        account_ids = batch['account_id_enc']
-        external_account_ids_enc = batch['external_account_ids_enc']
-        
-        logits = self(x, external_account_ids_enc)
+        logits = self(x)
         y = y.float()  # Ensure labels are float for BCE loss
         
-        pos_weight = torch.tensor([8], device=logits.device)
-        loss = F.binary_cross_entropy_with_logits(
-            logits.view(-1), y.view(-1), 
-            pos_weight=pos_weight
-        )
-        
-        # New regularization term: enforce fraud rate to be 12.76% per batch
-        # probs = torch.sigmoid(logits.view(-1))
-        # desired_rate = 0.1276
-        # fraud_reg_loss = (probs.mean() - desired_rate) ** 2
-        
-        # loss = bce_loss + 0.3 * fraud_reg_loss
-        
-        # Update account predictions for next batch/epoch
-        with torch.no_grad():
-            probs_detached = torch.sigmoid(logits.view(-1)).detach()
-            self.update_account_predictions(account_ids, probs_detached)
-          
-        # Log metrics including the new regularization loss
+        # Calculate weighted BCE loss - giving higher weight to minority class (fraud)
+        # Since fraud is 12% of the dataset, we use pos_weight = 88/12 ≈ 7.33
+        pos_weight = torch.tensor([7.33], device=logits.device)
+        loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
-        # self.log("fraud_reg_loss", fraud_reg_loss, prog_bar=True, on_epoch=True, sync_dist=True)
-        
         return loss
 
     def validation_step(self, batch, batch_idx):
         # Updated for dictionary return from __getitem__
         x = batch['padded_features']
         y = batch['label']
-        account_ids = batch['account_id_enc']
-        external_account_ids_enc = batch['external_account_ids_enc']
-        
-        # Forward pass
-        logits = self(x, external_account_ids_enc)
+        logits = self(x)
         y = y.float()
         
-        # Calculate weighted BCE loss
-        pos_weight = torch.tensor([8], device=logits.device)
-        val_loss = F.binary_cross_entropy_with_logits(
-            logits.view(-1), y.view(-1),
-            pos_weight=pos_weight
-        )
-        
-        # Calculate metrics
+        # Calculate weighted BCE loss for consistency with training
+        pos_weight = torch.tensor([7.33], device=logits.device)
+        val_loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
         probs = torch.sigmoid(logits.view(-1))
         preds = (probs > 0.5).float()
         
-        # Update account predictions for next validation batch
-        with torch.no_grad():
-            probs_cpu = probs.detach()
-            self.update_account_predictions(account_ids, probs_cpu)
-        
-        # Calculate F1 score for fraud class
+        # Calculate F1 score specifically for fraud class (class 1)
         y_true = y.view(-1)
         y_pred = preds
         
@@ -309,13 +258,13 @@ class Classifier(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        # Updated for dictionary return from __getitem__
+        """
+        Prediction step for generating fraud probabilities and predictions.
+        """
         x = batch['padded_features']
-        account_ids = batch['account_id_enc']
-        external_account_ids_enc = batch['external_account_ids_enc']
         
         # Forward pass
-        logits = self(x, external_account_ids_enc)
+        logits = self(x)
         
         # Get probabilities
         probs = torch.sigmoid(logits)
@@ -323,34 +272,7 @@ class Classifier(pl.LightningModule):
         # Get binary predictions
         preds = (probs > 0.5).float()
         
-        # Update account predictions
-        with torch.no_grad():
-            probs_cpu = probs.detach()
-            self.update_account_predictions(account_ids, probs_cpu)
-        
         return {"probs": probs, "preds": preds}
-
-    @property
-    def account_predictions(self):
-        return getattr(self, self._cur_pred_key)
-
-    def reset_account_pred_state(self, num_accounts=50_000):
-        # essentially: create a store for account predictions and switch depending on the phase
-        self.register_buffer("account_pred_train", torch.full((num_accounts,), self.default_prediction, dtype=torch.float16))
-        self.register_buffer("account_pred_val", torch.full((num_accounts,), self.default_prediction, dtype=torch.float16))
-        self.register_buffer("account_pred_test", torch.full((num_accounts,), self.default_prediction, dtype=torch.float16))
-
-    def on_train_epoch_start(self):
-        self.overwrite_rand_account_predictions = True
-        self._cur_pred_key = "account_pred_train"
-
-    def on_validation_epoch_start(self):
-        self.overwrite_rand_account_predictions = False
-        self._cur_pred_key = "account_pred_val"
-
-    def on_test_epoch_start(self):
-        self.overwrite_rand_account_predictions = False
-        self._cur_pred_key = "account_pred_test"
 
 
 if __name__ == "__main__":

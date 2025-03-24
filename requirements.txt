@@ -16,6 +16,8 @@ pytorch-lightning
 transformers
 tensorboardX
 lion_pytorch
+xformers
+flash-attn
 
 --extra-index-url https://download.pytorch.org/whl/cu126
 torch

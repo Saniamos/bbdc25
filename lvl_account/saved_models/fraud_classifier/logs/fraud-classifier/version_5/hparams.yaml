@@ -1,7 +1,0 @@
-dropout: 0.2
-feature_dim: 105
-freeze_bert: false
-hidden_dim: 128
-learning_rate: 0.0001
-pretrained_model_path: null
-weight_decay: 0.01

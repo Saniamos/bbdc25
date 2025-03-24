@@ -47,6 +47,23 @@ ver01: 0.79 -- 11
 ver03: 0.91 -- 12
 ver02: 0.76 -- 13
 ver04: 0.92 -- 14
+--- (some further changes, most notably higher hidden_dim and potential for more epochs -> basically converge faster, but top out at the same value) ---
+ver06: 0.91 -- 30
+ver07: 0.91 -- 31
+
+# Error Analysis:
+Transactions of C2934430280
+
+         Hour    Action     Amount    AccountID External  OldBalance  NewBalance  isUnauthorizedOverdraft External_Type  ToD  Amount_log
+238245     19   CASH_IN  178180.26  C2934430280     None       21.28   178201.54                        0          None   19   12.090551
+367733     41   CASH_IN  205387.30  C2934430280     None   178201.54   383588.84                        0          None   17   12.232653
+421953     44   CASH_IN  129218.21  C2934430280     None   383588.84   512807.05                        0          None   20   11.769258
+463674     47   CASH_IN  156677.13  C2934430280     None   512807.05   669484.19                        0          None   23   11.961942
+581652    139   CASH_IN   73271.37  C2934430280     None   669484.19   742755.56                        0          None   19   11.201925
+917177    203  CASH_OUT   66520.96  C2934430280     None   809276.52   742755.56                        0          None   11   11.105272
+1026553   214   CASH_IN  243380.04  C2934430280     None   742755.56   986135.59                        0          None   22   12.402379
+
+It appears some transactions are missing in the data. i.e. i cannot come up with another explanation of why the newBalance is the same after an action that does not have zero amounts.
 
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
