@@ -35,9 +35,8 @@ def det_color(fraudster, external_type):
             bank = 'yellow',
             merchant = 'blue')[external_type]
 
-def plot_neighbor_graphs(error_accounts, merged_df, two_accounts_df, n_plots_square, title, filename):
+def plot_neighbor_graphs(error_accounts, predicted_map, merged_df, two_accounts_df, n_plots_square, title, filename):
         fraud_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_true']))
-        predicted_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_pred']))
         
         fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
         axs = axs.flatten()
@@ -66,6 +65,14 @@ def plot_neighbor_graphs(error_accounts, merged_df, two_accounts_df, n_plots_squ
 def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots_square, title, filename):
     """
     Create pie charts showing transaction distribution by External_Type for each account.
+    
+    Args:
+        trans_df: DataFrame with transaction data
+        accounts_df: DataFrame with accounts to plot
+        merged_df: DataFrame with predictions and true labels
+        n_plots_square: Number of plots per row/column
+        title: Plot title
+        filename: Output filename
     """
     # Create prediction mapping
     predicted_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_pred']))
@@ -74,8 +81,8 @@ def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots
     axs = axs.flatten()
     
     for idx, acc in enumerate(accounts_df['AccountID']):
-        # Get transactions for this account - FIX: Create explicit copy to avoid SettingWithCopyWarning
-        acc_trans = trans_df[trans_df['AccountID'] == acc].copy()
+        # Get transactions for this account
+        acc_trans = trans_df[trans_df['AccountID'] == acc]
         
         if acc_trans.empty:
             axs[idx].text(0.5, 0.5, "No data", horizontalalignment='center', verticalalignment='center')
@@ -83,8 +90,8 @@ def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots
             continue
         
         # Count transactions by External_Type
-        # Fill NA with "Cash" to represent cash transactions
-        acc_trans['External_Type'] = acc_trans['External_Type'].fillna('Cash')
+        # Fill NA with "Cash" to represent cash transactions using .loc to avoid a SettingWithCopyWarning
+        acc_trans.loc[:, 'External_Type'] = acc_trans['External_Type'].fillna('Cash')
         type_counts = acc_trans['External_Type'].value_counts()
         
         # Create pie chart with custom colors
@@ -119,55 +126,150 @@ def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots
     plt.tight_layout()
     plt.savefig('plots_analyze/' + filename)
 
-
-def plot_average_transactions_by_type(trans_df, merged_df, title, filename):
+def plot_external_partner_frequency(trans_df, accounts_df, merged_df, n_plots_square, title, filename):
     """
-    Create a plot showing average number of transactions per account by External_Type,
-    comparing fraudulent vs non-fraudulent accounts.
+    Create histograms showing transaction frequencies with external partners for error accounts.
+    Highlight external partners that appear in multiple accounts.
     """
-    # Create a copy of the DataFrame
-    df = trans_df.copy()
+    # Create prediction mapping
+    predicted_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_pred']))
     
-    # Fill NA values in External_Type with 'Cash'
-    df['External_Type'] = df['External_Type'].fillna('Cash')
+    # First pass: collect all external partners and count which accounts they appear in
+    external_partners_count = {}
+    account_transactions = {}
     
-    # Join with fraud labels
-    df = df.merge(merged_df[['AccountID', 'Fraudster_true']], on='AccountID', how='left')
+    for acc in accounts_df['AccountID']:
+        # Get transactions for this account with external partners
+        acc_trans = trans_df[(trans_df['AccountID'] == acc) & (trans_df['External'].notna())].copy()
+        account_transactions[acc] = acc_trans
+        
+        if not acc_trans.empty:
+            # Get unique external partners for this account
+            unique_partners = acc_trans['External'].unique()
+            for partner in unique_partners:
+                if partner in external_partners_count:
+                    external_partners_count[partner].add(acc)
+                else:
+                    external_partners_count[partner] = {acc}
     
-    # Group by AccountID and External_Type, count transactions
-    transaction_counts = df.groupby(['AccountID', 'External_Type', 'Fraudster_true']).size().reset_index(name='count')
+    # Determine which partners appear in multiple accounts
+    shared_partners = {partner for partner, accounts in external_partners_count.items() 
+                      if len(accounts) > 1}
     
-    # Calculate average number of transactions per account type (fraud vs non-fraud)
-    avg_by_type = transaction_counts.groupby(['External_Type', 'Fraudster_true'])['count'].mean().reset_index()
+    # Create the plots
+    fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square*4, n_plots_square*3.5))
+    axs = axs.flatten()
     
-    # Pivot to have Fraud status as columns
-    pivot_df = avg_by_type.pivot(index='External_Type', columns='Fraudster_true', values='count')
-    pivot_df.columns = ['Non-Fraud', 'Fraud']
+    for idx, acc in enumerate(accounts_df['AccountID']):
+        acc_trans = account_transactions[acc]
+        
+        if acc_trans.empty or len(acc_trans['External'].unique()) <= 1:
+            axs[idx].text(0.5, 0.5, "No external transactions", horizontalalignment='center', verticalalignment='center')
+            continue
+            
+        # Count transactions by external partner
+        partner_counts = acc_trans['External'].value_counts()
+        
+        # Get transaction type for coloring
+        acc_trans['External_Type'] = acc_trans['External_Type'].fillna('Cash')
+        partner_types = {ext: acc_trans[acc_trans['External'] == ext]['External_Type'].iloc[0] 
+                        for ext in partner_counts.index}
+        
+        # Define colors for partner types
+        colors = {'Cash': 'lightgreen', 'bank': 'gold', 'merchant': 'skyblue', None: 'gray'}
+        
+        # Create histogram with custom colors
+        bars = axs[idx].bar(
+            range(len(partner_counts)), 
+            partner_counts.values,
+            color=[colors.get(partner_types.get(p), 'gray') for p in partner_counts.index],
+            edgecolor=['red' if p in shared_partners else 'black' for p in partner_counts.index],
+            linewidth=[2 if p in shared_partners else 1 for p in partner_counts.index]
+        )
+        
+        # Add labels
+        true_label = accounts_df[accounts_df['AccountID'] == acc]['Fraudster_true'].values[0]
+        predicted = predicted_map.get(acc, "N/A")
+        axs[idx].set_title(f"Acc: {acc} | True: {true_label} | Pred: {predicted}", fontsize=8)
+        
+        # Format x-axis: Only show first few characters of partner IDs to avoid overcrowding
+        if len(partner_counts) > 10:
+            # If too many partners, only show every nth label
+            n = max(1, len(partner_counts) // 10)
+            axs[idx].set_xticks(range(0, len(partner_counts), n))
+            
+            # Highlight shared partners in x-tick labels with bold text
+            xticklabels = []
+            for i, p in enumerate(partner_counts.index[::n]):
+                label = f"{p[:6]}..." 
+                if p in shared_partners:
+                    label = f"*{label}*"  # Add asterisk to mark shared partners
+                xticklabels.append(label)
+                
+            axs[idx].set_xticklabels(xticklabels, rotation=45, fontsize=6)
+        else:
+            axs[idx].set_xticks(range(len(partner_counts)))
+            
+            # Highlight shared partners in x-tick labels
+            xticklabels = []
+            for p in partner_counts.index:
+                label = f"{p[:6]}..." 
+                if p in shared_partners:
+                    label = f"*{label}*"  # Add asterisk to mark shared partners
+                xticklabels.append(label)
+                
+            axs[idx].set_xticklabels(xticklabels, rotation=45, fontsize=6)
+        
+        # Add value labels above the bars
+        for i, (p, v) in enumerate(zip(partner_counts.index, partner_counts.values)):
+            if v > 0:  # Only add text for non-zero bars
+                # Make shared partner counts bold and red
+                if p in shared_partners:
+                    axs[idx].text(i, v + 0.1, str(v), ha='center', fontsize=7, 
+                                 color='red', fontweight='bold')
+                else:
+                    axs[idx].text(i, v + 0.1, str(v), ha='center', fontsize=6)
+        
+        axs[idx].set_ylabel('Transactions', fontsize=7)
+        axs[idx].set_xlabel('External Partners', fontsize=7)
+        
+        # Add legend for transaction types and shared partners
+        legend_elements = []
+        
+        # Add partner type colors to legend
+        unique_types = set(partner_types.values())
+        for t in unique_types:
+            legend_elements.append(plt.Rectangle((0,0),1,1, color=colors.get(t, 'gray'), label=t))
+        
+        # Add shared partner indicator to legend
+        legend_elements.append(plt.Rectangle((0,0),1,1, facecolor='white', edgecolor='red', 
+                                             linewidth=2, label='Shared Partner'))
+        
+        axs[idx].legend(handles=legend_elements, fontsize=6, loc='upper right')
     
-    # Sort by total transaction count
-    pivot_df['Total'] = pivot_df.sum(axis=1)
-    pivot_df = pivot_df.sort_values('Total', ascending=False)
-    pivot_df = pivot_df.drop('Total', axis=1)
+    # Hide any unused subplots
+    for idx in range(len(accounts_df), n_plots_square*n_plots_square):
+        axs[idx].axis('off')
     
-    # Plot
-    plt.figure(figsize=(10, 6))
-    pivot_df.plot(kind='bar', figsize=(10, 6))
-    plt.title(title)
-    plt.xlabel('Transaction Type')
-    plt.ylabel('Average Number of Transactions')
-    plt.legend(title='Account Type')
-    plt.tight_layout()
+    # Add a global annotation about shared partners
+    plt.figtext(0.5, 0.01, f"* Red borders indicate partners found in multiple accounts ({len(shared_partners)} partners)", 
+                ha="center", fontsize=10, bbox={"facecolor":"orange", "alpha":0.2, "pad":5})
+    
+    plt.suptitle(title)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])  # Make room for the annotation
     plt.savefig('plots_analyze/' + filename)
     
-    return pivot_df
+    # Return the shared partners for further analysis
+    return shared_partners
 
 @click.command()
 # @click.argument('pred_csv', default="lvl_account/logs/2025.03.24_11.06.32_attn_cnn_val.csv", type=click.Path(exists=True))
 @click.argument('pred_csv', type=click.Path(exists=True))
-@click.argument('true_parquet', default='task/val_set/y_val.parquet', type=click.Path(exists=True))
+@click.argument('true_parquet', default='task/val_set/y_val.ver00.parquet', type=click.Path(exists=True))
 @click.option('--transaction_file', type=click.Path(exists=True), default='task/val_set/x_val.ver08.parquet', help='CSV file with transaction data for in-depth analysis')
 @click.option('--n_plots_square', type=int, default=4, help='Number of error accounts to plot')
-def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square):
+@click.option('--full', is_flag=True, default=False, help='Perform full analysis with transaction plots')
+def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square, full):
     # Load CSV files for true labels and predictions
     true_df = pd.read_parquet(true_parquet)
     pred_df = pd.read_csv(pred_csv)
@@ -189,61 +291,54 @@ def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square):
     if transaction_file:
         trans_df = pd.read_parquet(transaction_file)
         two_accounts_df = trans_df[trans_df['External'].notna()].copy()
+        predicted_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_pred']))
 
         click.echo("Performing in-depth transaction plots: neighbor graphs")
         # Filter first n_errors error accounts for a grid and sort by true label (non fraudsters first)
         n_errors = min(n_plots_square**2, merged_df['error'].sum())
         error_accounts = merged_df[merged_df['error']].sample(n=n_errors, random_state=42)
         error_accounts = error_accounts.sort_values(by='Fraudster_true', ascending=True)
-        plot_neighbor_graphs(error_accounts, merged_df, two_accounts_df, n_plots_square, "Neighbor Graphs for random wrong predictions", "neighbor_graph_subplots.pdf")
+        plot_neighbor_graphs(error_accounts, predicted_map, merged_df, two_accounts_df, n_plots_square, "Neighbor Graphs for random wrong predictions", "neighbor_graph_subplots.pdf")
         click.echo("Neighbor graphs saved to neighbor_graph_subplots.pdf")
 
-        click.echo("Performing in-depth transaction plots: neighbor graphs")
-        # Filter first n_errors error accounts for a grid and sort by true label (non fraudsters first)
-        n_plots = min(n_plots_square**2, (~merged_df['error']).sum())
-        non_error_accounts = merged_df[~merged_df['error']].sample(n=n_plots, random_state=42)
-        non_error_accounts = non_error_accounts.sort_values(by='Fraudster_true', ascending=True)
-        plot_neighbor_graphs(non_error_accounts, merged_df, two_accounts_df, n_plots_square, "Neighbor Graphs for random correct predictions", "neighbor_graph_subplots_correct.pdf")
-        click.echo("Neighbor graphs saved to neighbor_graph_subplots.pdf")
-
-        click.echo("Plotting transaction type distribution for correct accounts...")
+        # plot the average number of transactions per type for each account
+        click.echo("Plotting transaction type distribution for error accounts...")
         plot_transaction_type_distribution(
             trans_df, 
-            non_error_accounts, 
+            error_accounts, 
             merged_df, 
             n_plots_square, 
-            "Transaction Type Distribution for Correct Predictions", 
-            "transaction_type_distribution_correct.pdf"
+            "Transaction Type Distribution for Wrong Predictions", 
+            "transaction_type_distribution_errors.pdf"
         )
-        click.echo("Transaction type distribution saved to transaction_type_distribution_correct.pdf")
+        click.echo("Transaction type distribution saved to transaction_type_distribution_errors.pdf")
 
-        # Add average transactions by type plot
-        click.echo("Plotting average transactions by type...")
-        avg_trans_df = plot_average_transactions_by_type(
-            trans_df,
-            merged_df,
-            "Average Number of Transactions by Type (Fraud vs Non-Fraud)",
-            "avg_transactions_by_type.pdf"
+        # Add after the transaction type distribution plot:
+        click.echo("Plotting external partner transaction frequency for error accounts...")
+        plot_external_partner_frequency(
+            trans_df, 
+            error_accounts, 
+            merged_df, 
+            n_plots_square, 
+            "External Partner Transaction Frequency for Wrong Predictions", 
+            "external_partner_frequency_errors.pdf"
         )
-        click.echo("Average transactions by type saved to avg_transactions_by_type.pdf")
-        click.echo("\nAverage transactions by type summary:")
-        click.echo(avg_trans_df)
+        click.echo("External partner transaction frequency saved to external_partner_frequency_errors.pdf")
 
-        # click.echo("Performing in-depth transaction plots: transaction plots")
-        # col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['Amount'], "Amount Heatmaps for random wrong predictions", "transaction_amount_heatmaps.pdf")
-        # click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")
-        
-        # click.echo("Performing in-depth transaction plots: transaction plots")
-        # col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['OldBalance', 'NewBalance'], "Balance Heatmaps for random wrong predictions", "transaction_balance_heatmaps.pdf")
-        # click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")
-        
-        # click.echo("Performing in-depth transaction plots: transaction plots")
-        # col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['MissingTransaction'], "Missing Transaction Heatmaps for random wrong predictions", "transaction_missing_heatmaps.pdf")
-        # click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")
+        if full:
+            click.echo("Performing in-depth transaction plots: transaction plots")
+            col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['Amount'], "Amount Heatmaps for random wrong predictions", "transaction_amount_heatmaps.pdf")
+            click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")
+            
+            click.echo("Performing in-depth transaction plots: transaction plots")
+            col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['OldBalance', 'NewBalance'], "Balance Heatmaps for random wrong predictions", "transaction_balance_heatmaps.pdf")
+            click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")
+            
+            click.echo("Performing in-depth transaction plots: transaction plots")
+            col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['MissingTransaction'], "Missing Transaction Heatmaps for random wrong predictions", "transaction_missing_heatmaps.pdf")
+            click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")
         
         
 
 if __name__ == '__main__':
-    # example usage
-    # python3 analyze_errors.py lvl_account/logs/2025.03.24_15.56.46_attn_cnn_val.csv --n_plots_square 10
     analyze_errors()

@@ -1,4 +1,4 @@
-VERSION="ver09"
+VERSION="ver10"
 
 echo '-- Train ---'
 time(python3 preprocess.py --input_path ./task_orig/train_set/x_train.csv --output_path ./task/train_set/x_train.$VERSION.parquet --ft_module lvl_transaction.models.features.$VERSION)

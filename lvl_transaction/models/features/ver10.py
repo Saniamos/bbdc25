@@ -92,6 +92,8 @@ class Features:
         """Extract features from the input data."""
         # Create a single result DataFrame to avoid multiple concatenations
         result_df = pd.DataFrame(index=X.index)
+
+        X[['Amount', 'OldBalance', 'NewBalance']] = np.log1p(X[['Amount', 'OldBalance', 'NewBalance']].abs()) * np.sign(X[['Amount', 'OldBalance', 'NewBalance']])
         
         # Time features - vectorized operations
         result_df['ToD'] = X['Hour'] % 24
@@ -104,7 +106,7 @@ class Features:
         
         result_df['DoW'] = result_df['Day'] % 7
 
-         # Avoid division by zero
+        # Avoid division by zero
         result_df['PercentageOfBalance'] = np.divide(
             X['Amount'], X['OldBalance'], 
             out=np.zeros(len(X), dtype='float32'), 
@@ -127,6 +129,12 @@ class Features:
             out=np.zeros(len(X), dtype='float32'), 
             where=X['OldBalance'] > 0
         )
+
+        # some account transaction specifics calculated per account
+        group = X.groupby('AccountID')
+        result_df['HourDiff'] = group['Hour'].transform(lambda x: np.diff(x, prepend=0))
+        result_df['AmountDiff'] = group['Amount'].transform(lambda x: np.diff(x, prepend=0))
+        result_df['TransactionNumber'] = group.cumcount()
 
         # Flag for any missing transaction (binary feature)
         result_df['HasMissingTransaction'] = (np.abs(result_df['MissingTransaction']) > 0.01).astype('int8')
@@ -188,8 +196,8 @@ class Features:
 
 if __name__ == "__main__":
     import pandas as pd
-    VAL_X_PATH   = "~/Repositories/bbdc25/task/val_set/x_val.parquet"
-    VAL_Y_PATH   = "~/Repositories/bbdc25/task/val_set/y_val.parquet"
+    VAL_X_PATH   = "~/Repositories/bbdc25/task/val_set/x_val.ver00.parquet"
+    VAL_Y_PATH   = "~/Repositories/bbdc25/task/val_set/y_val.ver00.parquet"
 
     x_val_df = pd.read_parquet(VAL_X_PATH)
     y_val_df = pd.read_parquet(VAL_Y_PATH)

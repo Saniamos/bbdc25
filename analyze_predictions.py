@@ -109,7 +109,13 @@ def main(folder_path):
     overall_errors = set().union(*[errors[m] for m in file_names])
     overall_correct = set().union(*[corrects[m] for m in file_names])
     non_rescuable_ids = overall_errors - overall_correct
-    print(non_rescuable_ids)
+
+    # create a pred csv so that we can ingest the non-rescuable errors into other analysis tools
+    non_rescuable_df = gt_df.copy()
+    # overwrite the Fraudster column with the comp value ie 0 -> 1, 1 -> 0 for each account in non_rescuable_ids
+    non_rescuable_df.loc[non_rescuable_df['AccountID'].isin(non_rescuable_ids), 'Fraudster'] = 1 - non_rescuable_df['Fraudster'] 
+    non_rescuable_df.to_csv('non_rescuable_errors.csv', index=False)
+    print('non_rescuable_errors.csv')
 
     # Sort AccountIDs and build lists for true labels and annotations (AccountIDs)
     non_rescuable_ids_sorted = sorted([acc for acc in non_rescuable_ids if acc in gt_df['AccountID'].values])

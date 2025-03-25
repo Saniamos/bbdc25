@@ -139,8 +139,8 @@ class Features:
 
 if __name__ == "__main__":
     import pandas as pd
-    VAL_X_PATH   = "~/Repositories/bbdc25/task/val_set/x_val.parquet"
-    VAL_Y_PATH   = "~/Repositories/bbdc25/task/val_set/y_val.parquet"
+    VAL_X_PATH   = "~/Repositories/bbdc25/task/val_set/x_val.ver00.parquet"
+    VAL_Y_PATH   = "~/Repositories/bbdc25/task/val_set/y_val.ver00.parquet"
 
     x_val_df = pd.read_parquet(VAL_X_PATH)
     y_val_df = pd.read_parquet(VAL_Y_PATH)

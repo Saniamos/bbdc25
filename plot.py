@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 # Use seaborn style
 sns.set(style="whitegrid")
@@ -10,6 +11,17 @@ sns.set(style="whitegrid")
 def plot_amount_distribution(transactions_df, output_path):
     plt.figure(figsize=(8, 6))
     sns.histplot(transactions_df["Amount"], bins=30, kde=True)
+    plt.title("Distribution of Transaction Amounts")
+    plt.xlabel("Amount")
+    plt.ylabel("Frequency")
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Saved amount distribution plot to {output_path}")
+
+    output_path = output_path.replace('.png', '_log.png')
+    plt.figure(figsize=(8, 6))
+    sns.histplot(np.log(transactions_df["Amount"]), bins=30, kde=True)
     plt.title("Distribution of Transaction Amounts")
     plt.xlabel("Amount")
     plt.ylabel("Frequency")
@@ -684,7 +696,7 @@ def main(transactions_path, fraud_path, val_name):
     prefix = f"{val_name}_"
     
     # Generate plots that only require transactions data
-    # plot_amount_distribution(transactions_df, output_path=f"plot/{prefix}_amount_distribution.png")
+    plot_amount_distribution(transactions_df, output_path=f"plot/{prefix}_amount_distribution.png")
     # plot_hourly_average_amount(transactions_df, output_path=f"plot/{prefix}_hourly_average_amount.png")
     # plot_unique_accounts(transactions_df, output_path=f"plot/{prefix}_unique_accounts.png")
     # plot_overdrafts(transactions_df, output_path=f"plot/{prefix}_overdrafts.png")
@@ -706,7 +718,8 @@ def main(transactions_path, fraud_path, val_name):
         # plot_fraudsters_by_external_type(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraudsters_by_external_type.png")
         # plot_cash_only_accounts(transactions_df, fraud_df, output_path=f"plot/{prefix}_cash_only_accounts.png")
         # plot_accounts_by_transaction_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_tx_count.png")
-        plot_accounts_by_external_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_external_count.png", max_ext=20, bin_size=1)
+        # plot_accounts_by_external_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_external_count.png", max_ext=20, bin_size=1)
+        pass
     else:
         print("No fraud_path provided: Skipping fraud-based plots.")
 
