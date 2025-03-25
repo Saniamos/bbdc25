@@ -388,9 +388,9 @@ def load_datasets(X_list):
     y_res = pd.concat(y_res)
     x_res = pd.concat(x_res)
 
-    # # assert no nan values are present
-    # if x_res.drop(na_cols, axis=1).isnull().values.any():
-    #     raise ValueError('nan values found in x_res')
+    # assert no nan values are present
+    if x_res.drop(NA_COLS, axis=1).isnull().values.any():
+        raise ValueError('nan values found in x_res')
     
     return x_res, y_res
 

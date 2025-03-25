@@ -50,7 +50,11 @@ ver04: 0.92 -- 14
 --- (some further changes, most notably higher hidden_dim and potential for more epochs -> basically converge faster, but top out at the same value) ---
 ver06: 0.91 -- 30
 ver07: 0.91 -- 31
-
+--- (some more changes) ---
+version, fraud f1, tensorboard log, model 
+ver05: 0.94 -- 33 (simple_cnn)
+ver11: 0.91 -- 34 (simple_cnn)
+ver11: 0.91 -- 19 (rec_cnn)
 # Error Analysis:
 Transactions of C2934430280
 
@@ -68,7 +72,8 @@ This happens for non-fraud accounts as well -> i assume the organizers removed r
 
 Given the plot plots_analyze/non_rescuable_errors_heatmap.pdf it appears we lack the information to detect around 60 fraud accounts. This could be because each model compensates slightly differntly when miss classifying non-fraudsters etc. -> figure out what unifies these 60 accounts and try to feature engineer that.
 -> it appears all of these do not opperate in a network with other fraudster customers
-->  
+->  given teh reverse_neighbor_graph_subplots.pdf i finally could confirm that the main issue i have is that some fraud accounts are mainly fraud because they recive money from other fraud accounts. This is something we currently do not represent. I've tried with the rec_cnn but could not get it to work. Will re-consider this approach now. 
+-> ah, this also explains the "missing" transactions. 
 
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf

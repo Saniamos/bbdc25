@@ -73,7 +73,7 @@ def import_model_class(python_file_base, logger):
 
 def train_model(logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
                continue_from_checkpoint, num_train_epochs, val_every_epoch, 
-               learning_rate, weight_decay, patience, dry_run, output_dir, common_args):
+               learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp):
     """Train the model and save checkpoints"""
     
     logger.info("Preparing datasets for training...")
@@ -135,7 +135,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
     model = ModelClass(**model_kwargs)
 
     # # Apply torch.compile if available (PyTorch 2.0+)
-    if hasattr(torch, 'compile'):
+    if hasattr(torch, 'compile') and comp:
         try:
             logger.info("Compiling model with torch.compile()...")
             model = torch.compile(model, mode="reduce-overhead")
@@ -267,6 +267,46 @@ def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+def generate_train_predictions(logger, trainer, model, common_args, train_dataset):
+    # Generate predictions for the training set similar to validation and test
+    logger.info('---------------------------------------------------')
+    logger.info("Generating train predictions...")
+    
+    train_loader_pred = DataLoader(
+        train_dataset,
+        shuffle=False,
+        drop_last=False,
+        **common_args
+    )
+    
+    n = 1
+    if hasattr(model, 'reset_account_pred_state'):
+        model.reset_account_pred_state()
+        n = 4
+    for i in range(n):
+        logger.info(f"=== Pass {i} ===================")
+        train_predictions = trainer.predict(model, train_loader_pred, ckpt_path="best")
+    
+    preds = torch.cat([batch["preds"] for batch in train_predictions]).cpu().numpy().astype(int).flatten()
+    account_ids = train_loader_pred.dataset.get_account_ids()[:len(preds)]
+    
+    predictions_df = pd.DataFrame({
+        "AccountID": account_ids,
+        "Fraudster": preds.astype(int)
+    })
+    predictions_df['AccountID'] = predictions_df['AccountID'].str.split('yh').str[0]
+    
+    predictions_output = os.path.join(LOG_DIR, f"{LOG_BASENAME}_train.csv")
+    predictions_df.to_csv(predictions_output, index=False)
+    logger.info(f"Train predictions saved to {predictions_output}")
+    
+    # Free up memory
+    del train_loader_pred, train_predictions
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    return predictions_output
 
 def generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file):
     """Generate predictions on the test set and save to CSV"""
@@ -358,9 +398,10 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 @click.option("--skip_train", is_flag=True, help="Skip training and use existing model")
 @click.option("--skip_validation", is_flag=True, help="Skip validation evaluation")
 @click.option("--skip_test", is_flag=True, help="Skip test prediction")
+@click.option("--comp", is_flag=True, default=False, help="Compile model if available (PyTorch 2.0+)")
 def main(model_class, data_version, precompute, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
          num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
-         skeleton_file, skip_train, skip_validation, skip_test):
+         skeleton_file, skip_train, skip_validation, skip_test, comp):
     
     # Setup logging
     logger = setup_logger(model_class)
@@ -397,7 +438,7 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
         model, trainer, final_model_path, train_dataset, val_dataset = train_model(
             logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
             continue_from_checkpoint, num_train_epochs, val_every_epoch, 
-            learning_rate, weight_decay, patience, dry_run, output_dir, common_args
+            learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp
         )
     else:
         # Load existing model
@@ -428,6 +469,12 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
         evaluate_on_validation(logger, trainer, model, common_args, val_dataset)
         val_dataset.delete_cache()
 
+    # Add train predictions output if training dataset is available.
+    if not skip_train:
+        generate_train_predictions(logger, trainer, model, common_args, train_dataset)
+    else:
+        logger.info("Skipping train predictions because train dataset is not available.")
+    
     if not skip_test:
         # Generate test predictions
         generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file)

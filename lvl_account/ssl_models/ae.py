@@ -35,104 +35,79 @@ class AutoEncoder(pl.LightningModule):
                  weight_decay=0.01,
                  learning_rate=1e-4,
                  dropout=0.2,
-                 embed_shape=(256, 64),  # embed_shape: (reduced_seq_len, latent_channels)
+                 embed_shape=256,
                  warmup_steps=100,
                  max_lr=5e-4,
                  min_lr=1e-5):
         super().__init__()
         self.save_hyperparameters()
         
-        self.feature_dim = feature_dim
-        self.embed_shape = embed_shape  # e.g. (256, 50): time steps and latent channels
+        self.input_dim = feature_dim
         self.dropout = dropout
         self.warmup_steps = warmup_steps
         self.max_lr = max_lr
         self.min_lr = min_lr
-        self.hidden_dim = 256  # base hidden dimension
+        self.hidden_dim = embed_shape
         
-        # Encoder: operate in 1D. Input shape: (B, feature_dim, 2048)
         self.encoder = nn.Sequential(
-            # Block 1: from feature_dim to hidden_dim; downsample sequence length: 2048 -> 1024
-            nn.Conv1d(feature_dim, self.hidden_dim, kernel_size=3, padding=1, bias=False),
+            nn.Conv1d(self.input_dim, self.hidden_dim, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm1d(self.hidden_dim),
+            nn.SiLU(inplace=True),
+            # replaced MaxPool1d with learnable downsampling block
+            nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(self.hidden_dim),
             nn.SiLU(inplace=True),
             nn.Dropout(dropout),
             nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(self.hidden_dim),
             nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            # Block 2: 1024 -> 512
-            nn.Conv1d(self.hidden_dim, self.hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(self.hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(self.hidden_dim*2, self.hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(self.hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            # Block 3: 512 -> 256
-            nn.Conv1d(self.hidden_dim*2, self.hidden_dim*4, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(self.hidden_dim*4),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(self.hidden_dim*4, self.hidden_dim*4, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(self.hidden_dim*4),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout)
-        )
-        # After three downsamples: sequence length 2048/(2*2*2)=256, channels: hidden_dim*4
-        
-        # Projection from high channels to latent dimension (embed_shape[1])
-        self.projection = nn.Conv1d(self.hidden_dim*4, embed_shape[1], kernel_size=1)
-        
-        # Two attention blocks (operating over the time dimension, which is 256)
-        self.attention = nn.Sequential(
-            AttentionBlock(embed_shape[1], num_heads=4, dropout=dropout),
-            AttentionBlock(embed_shape[1], num_heads=4, dropout=dropout)
-        )
-        
-        # Decoder: mirror the encoder.
-        # First, inverse attention and projection.
-        self.decoder_projection = nn.Conv1d(embed_shape[1], self.hidden_dim*4, kernel_size=1)
-        
-        self.decoder = nn.Sequential(
-            # Block 1: Upsample: 256 -> 512
-            nn.ConvTranspose1d(self.hidden_dim*4, self.hidden_dim*2, kernel_size=2, stride=2),
-            nn.BatchNorm1d(self.hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            # Block 2: Upsample: 512 -> 1024
-            nn.ConvTranspose1d(self.hidden_dim*2, self.hidden_dim, kernel_size=2, stride=2),
+            # replaced MaxPool1d with learnable downsampling block
+            nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(self.hidden_dim),
             nn.SiLU(inplace=True),
             nn.Dropout(dropout),
-            # Block 3: Upsample: 1024 -> 2048, output channels = feature_dim
-            nn.ConvTranspose1d(self.hidden_dim, feature_dim, kernel_size=2, stride=2)
+            nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm1d(self.hidden_dim),
+            nn.SiLU(inplace=True)
+        )
+        
+        # Two attention blocks
+        self.attention = nn.Sequential(
+            AttentionBlock(self.hidden_dim, num_heads=4, dropout=dropout),
+            AttentionBlock(self.hidden_dim, num_heads=4, dropout=dropout)
+        )
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose1d(self.hidden_dim, self.hidden_dim, kernel_size=2, stride=2),
+            nn.BatchNorm1d(self.hidden_dim),
+            nn.SiLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.ConvTranspose1d(self.hidden_dim, self.hidden_dim, kernel_size=2, stride=2),
+            nn.BatchNorm1d(self.hidden_dim),
+            nn.SiLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.Conv1d(self.hidden_dim, self.input_dim, kernel_size=1)
         )
         
         self.criterion = nn.MSELoss()
         self._init_weights()
     
+    
     def forward(self, x):
-        # x: (B, 2048, feature_dim); permute to (B, feature_dim, 2048)
-        x = x.permute(0, 2, 1)
-        enc = self.encoder(x)                   # shape: (B, hidden_dim*4, 256)
-        proj = self.projection(enc)             # shape: (B, embed_channels, 256)
-        # Permute for attention: (B, 256, embed_channels)
-        proj = proj.permute(0, 2, 1)
-        attn = self.attention(proj)             # shape: (B, 256, embed_channels)
-        # Permute back for decoder: (B, embed_channels, 256)
-        attn = attn.permute(0, 2, 1)
-        dec_proj = self.decoder_projection(attn)  # shape: (B, hidden_dim*4, 256)
-        dec = self.decoder(dec_proj)              # shape: (B, feature_dim, 2048)
-        out = dec.permute(0, 2, 1)                  # (B, 2048, feature_dim)
+        # x: (B, 2048, feature_dim)
+        # Cast x to model's dtype for mixed precision compatibility
+        x = x.permute(0, 2, 1)                   # (B, feature_dim, 2048)
+        enc = self.encoder(x)                    # (B, hidden_dim, 256)
+        enc = enc.permute(0, 2, 1)                # (B, 256, hidden_dim)
+        attn = self.attention(enc)                # (B, 256, hidden_dim)
+        attn = attn.permute(0, 2, 1)              # (B, hidden_dim, 256)
+        dec = self.decoder(attn)             # (B, input_dim, 2048)
+        out = dec.permute(0, 2, 1)                # (B, 2048, input_dim)
         return out
     
     def training_step(self, batch, batch_idx):
         x = batch['padded_features']
+        x = x.to(self.dtype)  # ensure target dtype matches the model's dtype
         x_hat = self.forward(x)
         loss = self.criterion(x_hat, x)
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
@@ -140,6 +115,7 @@ class AutoEncoder(pl.LightningModule):
     
     def predict_step(self, batch, batch_idx):
         x = batch['padded_features']
+        x = x.to(self.dtype)  # ensure target dtype matches the model's dtype
         return self.forward(x)
     
     def configure_optimizers(self):

@@ -44,6 +44,10 @@ def preprocess(input_path, output_path, ft_module):
         df["External_Type"] = df["External"].apply(get_external_type)
         if fts is not None and hasattr(fts, "extract"):
             df = fts().extract(df)
+            val_counts = df.groupby('AccountID').size().value_counts()
+            print('Account Transaction Sequence Lengths:')
+            print(val_counts)
+            print('Longest Transaction Sequence:', val_counts.index.max())
         print("Added External_Type column.")
     else:
         print("The 'External' column was not found in the input file.")

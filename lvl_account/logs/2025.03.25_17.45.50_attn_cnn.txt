@@ -1,0 +1,11 @@
+2025-03-25 17:45:50,466 - INFO - Logging to file: logs/2025.03.25_17.45.50_attn_cnn.txt
+2025-03-25 17:45:50,466 - INFO - Configuration: data_version=ver10, model_class=attn_cnn
+2025-03-25 17:45:50,466 - INFO - pretrained_model_path=None, output_dir=saved_models/attn_cnn
+2025-03-25 17:45:50,466 - INFO - freeze_bert=True, batch_size=256, epochs=50
+2025-03-25 17:45:50,466 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
+2025-03-25 17:45:50,466 - INFO - seed=42, num_workers=0, patience=3
+2025-03-25 17:45:50,468 - INFO - Set random seed to 42
+2025-03-25 17:45:50,468 - INFO - Preparing datasets for training...
+2025-03-25 17:45:50,469 - INFO - Loading training data...
+2025-03-25 17:45:53,323 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-25 17:45:53,555 - INFO - Normalizing 163 numeric columns

@@ -1,0 +1,8 @@
+dropout: 0.2
+embed_shape: 256
+feature_dim: 105
+learning_rate: 0.0001
+max_lr: 0.0005
+min_lr: 1.0e-05
+warmup_steps: 100
+weight_decay: 0.01

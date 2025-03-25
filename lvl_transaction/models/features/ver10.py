@@ -20,12 +20,12 @@ params = {
     # fan in/out parameters
     "fan": True,
     "fan_tw": tw,
-    "fan_bins": list(range(1, 60)),
+    "fan_bins": list(range(1, 30)),
     
     # in/out degree parameters
     "degree": True,
     "degree_tw": tw,
-    "degree_bins": list(range(1, 60)),
+    "degree_bins": list(range(1, 30)),
     
     # scatter gather parameters
     "scatter-gather": True,
@@ -53,6 +53,7 @@ class Features:
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
         self.graph_feature_preprocessor = GraphFeaturePreprocessor()
         self.graph_feature_preprocessor.set_params(params)
+
 
     def _create_action_counts(self, X, result_df, group_cols):
         """Helper method to create action count features efficiently."""
@@ -90,11 +91,11 @@ class Features:
 
     def extract(self, X):
         """Extract features from the input data."""
+        X[['Amount', 'OldBalance', 'NewBalance']] = np.log1p(X[['Amount', 'OldBalance', 'NewBalance']].abs()) * np.sign(X[['Amount', 'OldBalance', 'NewBalance']])
+        
         # Create a single result DataFrame to avoid multiple concatenations
         result_df = pd.DataFrame(index=X.index)
 
-        X[['Amount', 'OldBalance', 'NewBalance']] = np.log1p(X[['Amount', 'OldBalance', 'NewBalance']].abs()) * np.sign(X[['Amount', 'OldBalance', 'NewBalance']])
-        
         # Time features - vectorized operations
         result_df['ToD'] = X['Hour'] % 24
         
@@ -131,10 +132,22 @@ class Features:
         )
 
         # some account transaction specifics calculated per account
+        result_df['AmountNonAbs'] = X['NewBalance'] - X['OldBalance']
+        # result_df['CleanAmount'] = group['AmountNonAbs'].transform(lambda row: (row['NewBalance'] - row['OldBalance']).abs() if row['NewBalance'] < row['OldBalance'] else 0)
+        X['CleanAmount'] = np.where(result_df['AmountNonAbs'] < 0, X['Amount'], 0)
+        result_df['CleanAmount'] = X['CleanAmount']
+        
         group = X.groupby('AccountID')
         result_df['HourDiff'] = group['Hour'].transform(lambda x: np.diff(x, prepend=0))
         result_df['AmountDiff'] = group['Amount'].transform(lambda x: np.diff(x, prepend=0))
+        result_df['CleanAmountCum'] = group['CleanAmount'].transform('cumsum')
         result_df['TransactionNumber'] = group.cumcount()
+
+        idx = X['External'].notna()
+        group = X[idx].groupby('External')
+        result_df['ExternalAmountCumSum'] = 0.0  # Use 0.0 to initialize as float
+        result_df.loc[idx, 'ExternalAmountCumSum'] = group['Amount'].transform('cumsum')
+
 
         # Flag for any missing transaction (binary feature)
         result_df['HasMissingTransaction'] = (np.abs(result_df['MissingTransaction']) > 0.01).astype('int8')
@@ -147,7 +160,6 @@ class Features:
         
         self._create_action_counts(X, result_df, ['AccountID'])
         self._create_action_counts(X, result_df, ['AccountID', 'Hour'])
-        self._create_action_counts(X, result_df, ['AccountID', 'Day'])
                 
         # Copy needed columns from X to result_df
         for col in X.columns:
@@ -166,6 +178,29 @@ class Features:
         enriched_col_names = [f"GFP_{i}" for i in range(enriched.shape[1])]
         enriched_df = pd.DataFrame(res, columns=enriched_col_names, index=X.index)
         result_df = pd.concat([result_df, enriched_df], axis=1)
+
+
+        # add reverse transactions
+        idx = result_df['External'].notna() & result_df['External'].isin(result_df['AccountID'].unique())
+        rev = result_df[idx].copy().rename(columns={'AccountID': 'External', 'External': 'AccountID'})
+        rev['External_Type'] = rev['External_Type'].apply(lambda x: f"REV_{x}")
+        rev['OldBalance'] = np.nan
+        rev['NewBalance'] = np.nan
+        result_df = pd.concat([result_df, rev], ignore_index=True).reset_index().sort_values(['Hour', 'index']).reset_index(drop=True).drop(['index'], axis=1)
+
+        def fill_missing_transactions(group):
+            group = group.reset_index().sort_values(['Hour', 'index']).drop('index', axis=1)  # ensure correct order within the account
+            for pos, idx in enumerate(group.index):
+                if pd.isna(group.at[idx, 'OldBalance']):
+                    last_new_balance = group.iloc[pos-1]['NewBalance']
+                    group.at[idx, 'OldBalance'] = last_new_balance
+                    group.at[idx, 'NewBalance'] = last_new_balance + group.at[idx, 'AmountNonAbs']
+            return group
+
+        result_df = result_df.groupby('AccountID', group_keys=False).apply(fill_missing_transactions)
+        result_df[['OldBalance', 'NewBalance']] = result_df[['OldBalance', 'NewBalance']].fillna(0) # in rare cases, e.g. first transaction in account may not be calculatable
+
+        assert result_df.drop(['External', 'External_Type'], axis=1).isna().sum().sum() == 0, f"Missing values in result_df: {result_df.isna().sum()}"
         
         return result_df
         # return result_df.sort_values(["AccountID", "External_Type", "Hour"]).copy()
