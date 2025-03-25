@@ -201,38 +201,52 @@ class AccountTransactionDataset(Dataset):
                 - label: Binary fraud label (0 or 1)
         """
         if self.precompute:
-            # Get precomputed data for this account
             item = self.precomputed_data[idx]
         else:
-            # Process account data on-the-fly
             item = self._process_account_data(idx=idx)
         
-        # Apply padding here instead of in _process_account_data
+        # Extract features and determine sequence length
         features = item['features']
-        
-        # Create padded tensor
         seq_len = features.shape[0]
-        padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float16)
-        padded_features[:seq_len] = torch.from_numpy(features)
+
+        # Compute evenly spaced indices in [0, max_seq_len-1]
+        # We do this to be able to pass more information through the cnn layers. not sure if it actually works that way, but worht a try
+        # the idea is essntially this: the cnn layers condense the samples 
+        # currently we need to fill up to 2048 timesteps, but often we less than a hundred -> cnn for condensation
+        # with a fill in the beginning the cnn would condense the information to the beginning of the sequence
+        # the idea with spacing them out is that the cnn either has two transactions next to each
+        indices = torch.tensor(np.linspace(0, self.max_seq_len - 1, num=seq_len, dtype=int))
         
-        # Apply masking if needed (on padded features)
+        # Create padded_features and place features at the computed indices
+        padded_features = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float16)
+        padded_features[indices] = torch.from_numpy(features).to(torch.float16)
+        
+        # For masking, prepare a contiguous tensor (first seq_len rows) so that mask_features works as intended
         if self.mask:
-            masked_features, masked_pos = self.mask_features(padded_features, seq_len)
+            contiguous = torch.zeros((self.max_seq_len, self.feature_dim), dtype=torch.float16)
+            contiguous[:seq_len] = torch.from_numpy(features)
+            masked_contiguous, masked_contiguous_pos = self.mask_features(contiguous, seq_len)
+
+            # Scatter the masked contiguous results back to their distributed positions
+            masked_features = padded_features.clone()
+            masked_pos = torch.zeros_like(padded_features, dtype=torch.bool)
+            for i, pos in enumerate(indices):
+                masked_features[pos] = masked_contiguous[i]
+                masked_pos[pos] = masked_contiguous_pos[i]
         else:
             masked_features, masked_pos = torch.empty(0), torch.empty(0)
         
-        _tmp_ext = item['external_account_ids_enc']
-        external_account_ids_enc = torch.zeros((self.max_seq_len, 1), dtype=torch.int)
-        external_account_ids_enc[:seq_len] = torch.from_numpy(_tmp_ext).unsqueeze(1).int()
+        # Process external account ids using the same spacing
+        ext_enc = item['external_account_ids_enc']
+        external_full = torch.zeros((self.max_seq_len, 1), dtype=torch.int)
+        external_full[indices] = torch.from_numpy(ext_enc).unsqueeze(1).int()
         
-        # Return the final item
-        # important: discard the feature entry, as that cannot be collated and is not needed
         return dict(masked_features=masked_features,
                     masked_pos=masked_pos,
                     padded_features=padded_features,
                     label=item['label'],
                     account_id_enc=item['account_id_enc'],
-                    external_account_ids_enc=external_account_ids_enc)
+                    external_account_ids_enc=external_full)
     
     
     # @profile
@@ -470,6 +484,8 @@ def prep_hpsearch_dataloaders(data_version, seed, batch_size, num_workers, load_
 
 
 if __name__ == "__main__":
+    from tqdm import tqdm
+    
     num_workers = 0
     val_loader = DataLoader(
         prepare_dataset('ver05', mask=False, log_fn=print, fn=load_val, max_seq_len=1024),
@@ -484,7 +500,7 @@ if __name__ == "__main__":
 
     account_ids = []
     fraud_bools = []
-    for i, batch in enumerate(val_loader):
+    for i, batch in enumerate(tqdm(val_loader)):
         account_id, label = batch['account_id_enc'], batch['label']
         # masked_features, masked_pos, padded_features, label, account_id, external_account_ids_enc = batch
         account_ids.extend(account_id.flatten())

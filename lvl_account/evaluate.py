@@ -258,6 +258,7 @@ def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
     predictions_df['AccountID'] = predictions_df['AccountID'].str.split('yh').str[0]       
     predictions_output = os.path.join(LOG_DIR, f"{LOG_BASENAME}_val.csv")
     predictions_df.to_csv(predictions_output, index=False)
+    logger.info(f"Predicted fraudster count: {predictions_df['Fraudster'].sum()} / {N_FRAUDSTERS['val']}")
     logger.info(f"Test predictions saved to {predictions_output}")
 
     # Free up memory
@@ -310,7 +311,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
         how="left"
     ).fillna(0)
 
-    logger.info(f"Predicted fraudster percentage: {aligned_predictions['Fraudster'].mean()}")
+    logger.info(f"Predicted fraudster count: {aligned_predictions['Fraudster'].sum()} / {N_FRAUDSTERS['test']}")
     
     # Save predictions
     predictions_output = os.path.join(LOG_DIR, f"{LOG_BASENAME}_test.csv")

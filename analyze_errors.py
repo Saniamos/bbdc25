@@ -23,7 +23,7 @@ def col_plot(trans_df, error_accounts, predicted_map, n_plots_square, cols, titl
 
     plt.suptitle(title)
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig('plots_analyze/' + filename)
 
 def det_color(fraudster, external_type):
     if fraudster == 1:
@@ -61,19 +61,11 @@ def plot_neighbor_graphs(error_accounts, merged_df, two_accounts_df, n_plots_squ
 
         plt.suptitle(title)
         plt.tight_layout()
-        plt.savefig(filename)
+        plt.savefig('plots_analyze/' + filename)
 
 def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots_square, title, filename):
     """
     Create pie charts showing transaction distribution by External_Type for each account.
-    
-    Args:
-        trans_df: DataFrame with transaction data
-        accounts_df: DataFrame with accounts to plot
-        merged_df: DataFrame with predictions and true labels
-        n_plots_square: Number of plots per row/column
-        title: Plot title
-        filename: Output filename
     """
     # Create prediction mapping
     predicted_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_pred']))
@@ -82,8 +74,8 @@ def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots
     axs = axs.flatten()
     
     for idx, acc in enumerate(accounts_df['AccountID']):
-        # Get transactions for this account
-        acc_trans = trans_df[trans_df['AccountID'] == acc]
+        # Get transactions for this account - FIX: Create explicit copy to avoid SettingWithCopyWarning
+        acc_trans = trans_df[trans_df['AccountID'] == acc].copy()
         
         if acc_trans.empty:
             axs[idx].text(0.5, 0.5, "No data", horizontalalignment='center', verticalalignment='center')
@@ -125,7 +117,49 @@ def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots
     
     plt.suptitle(title)
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig('plots_analyze/' + filename)
+
+
+def plot_average_transactions_by_type(trans_df, merged_df, title, filename):
+    """
+    Create a plot showing average number of transactions per account by External_Type,
+    comparing fraudulent vs non-fraudulent accounts.
+    """
+    # Create a copy of the DataFrame
+    df = trans_df.copy()
+    
+    # Fill NA values in External_Type with 'Cash'
+    df['External_Type'] = df['External_Type'].fillna('Cash')
+    
+    # Join with fraud labels
+    df = df.merge(merged_df[['AccountID', 'Fraudster_true']], on='AccountID', how='left')
+    
+    # Group by AccountID and External_Type, count transactions
+    transaction_counts = df.groupby(['AccountID', 'External_Type', 'Fraudster_true']).size().reset_index(name='count')
+    
+    # Calculate average number of transactions per account type (fraud vs non-fraud)
+    avg_by_type = transaction_counts.groupby(['External_Type', 'Fraudster_true'])['count'].mean().reset_index()
+    
+    # Pivot to have Fraud status as columns
+    pivot_df = avg_by_type.pivot(index='External_Type', columns='Fraudster_true', values='count')
+    pivot_df.columns = ['Non-Fraud', 'Fraud']
+    
+    # Sort by total transaction count
+    pivot_df['Total'] = pivot_df.sum(axis=1)
+    pivot_df = pivot_df.sort_values('Total', ascending=False)
+    pivot_df = pivot_df.drop('Total', axis=1)
+    
+    # Plot
+    plt.figure(figsize=(10, 6))
+    pivot_df.plot(kind='bar', figsize=(10, 6))
+    plt.title(title)
+    plt.xlabel('Transaction Type')
+    plt.ylabel('Average Number of Transactions')
+    plt.legend(title='Account Type')
+    plt.tight_layout()
+    plt.savefig('plots_analyze/' + filename)
+    
+    return pivot_df
 
 @click.command()
 # @click.argument('pred_csv', default="lvl_account/logs/2025.03.24_11.06.32_attn_cnn_val.csv", type=click.Path(exists=True))
@@ -172,18 +206,28 @@ def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square):
         plot_neighbor_graphs(non_error_accounts, merged_df, two_accounts_df, n_plots_square, "Neighbor Graphs for random correct predictions", "neighbor_graph_subplots_correct.pdf")
         click.echo("Neighbor graphs saved to neighbor_graph_subplots.pdf")
 
-        # plot the average number of transactions per type for each account
-        click.echo("Plotting transaction type distribution for error accounts...")
+        click.echo("Plotting transaction type distribution for correct accounts...")
         plot_transaction_type_distribution(
             trans_df, 
-            error_accounts, 
+            non_error_accounts, 
             merged_df, 
             n_plots_square, 
-            "Transaction Type Distribution for Wrong Predictions", 
-            "transaction_type_distribution_errors.pdf"
+            "Transaction Type Distribution for Correct Predictions", 
+            "transaction_type_distribution_correct.pdf"
         )
-        click.echo("Transaction type distribution saved to transaction_type_distribution_errors.pdf")
+        click.echo("Transaction type distribution saved to transaction_type_distribution_correct.pdf")
 
+        # Add average transactions by type plot
+        click.echo("Plotting average transactions by type...")
+        avg_trans_df = plot_average_transactions_by_type(
+            trans_df,
+            merged_df,
+            "Average Number of Transactions by Type (Fraud vs Non-Fraud)",
+            "avg_transactions_by_type.pdf"
+        )
+        click.echo("Average transactions by type saved to avg_transactions_by_type.pdf")
+        click.echo("\nAverage transactions by type summary:")
+        click.echo(avg_trans_df)
 
         # click.echo("Performing in-depth transaction plots: transaction plots")
         # col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['Amount'], "Amount Heatmaps for random wrong predictions", "transaction_amount_heatmaps.pdf")
@@ -200,4 +244,6 @@ def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square):
         
 
 if __name__ == '__main__':
+    # example usage
+    # python3 analyze_errors.py lvl_account/logs/2025.03.24_15.56.46_attn_cnn_val.csv --n_plots_square 10
     analyze_errors()

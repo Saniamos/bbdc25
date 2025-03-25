@@ -1,0 +1,63 @@
+2025-03-25 09:14:26,903 - INFO - Logging to file: logs/2025.03.25_09.14.26_attn_cnn.txt
+2025-03-25 09:14:26,903 - INFO - Configuration: data_version=ver00, model_class=attn_cnn
+2025-03-25 09:14:26,903 - INFO - pretrained_model_path=None, output_dir=saved_models/attn_cnn
+2025-03-25 09:14:26,903 - INFO - freeze_bert=True, batch_size=221, epochs=50
+2025-03-25 09:14:26,903 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
+2025-03-25 09:14:26,903 - INFO - seed=42, num_workers=0, patience=3
+2025-03-25 09:14:26,906 - INFO - Set random seed to 42
+2025-03-25 09:14:26,906 - INFO - Preparing datasets for training...
+2025-03-25 09:14:26,907 - INFO - Loading training data...
+2025-03-25 09:14:27,742 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-25 09:14:27,753 - INFO - Normalizing 5 numeric columns
+2025-03-25 09:14:28,476 - INFO - Total of 45816 unique accounts
+2025-03-25 09:14:28,879 - INFO - Loaded dataset with 11059 accounts and 1674104 transactions
+2025-03-25 09:14:28,879 - INFO - Feature columns: 7 -- ['Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type']
+2025-03-25 09:14:28,879 - INFO - Fraud accounts: 1411 (12.76%)
+2025-03-25 09:14:28,911 - INFO - Precomputing tensors for faster data loading...
+2025-03-25 09:14:34,588 - INFO - Precomputed 11059 tensors
+2025-03-25 09:14:34,723 - INFO - Loading validation data...
+2025-03-25 09:14:35,510 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-25 09:14:35,521 - INFO - Normalizing 5 numeric columns
+2025-03-25 09:14:36,234 - INFO - Total of 45816 unique accounts
+2025-03-25 09:14:36,651 - INFO - Loaded dataset with 11059 accounts and 1704503 transactions
+2025-03-25 09:14:36,651 - INFO - Feature columns: 7 -- ['Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type']
+2025-03-25 09:14:36,651 - INFO - Fraud accounts: 1472 (13.31%)
+2025-03-25 09:14:36,679 - INFO - Precomputing tensors for faster data loading...
+2025-03-25 09:14:42,429 - INFO - Precomputed 11059 tensors
+2025-03-25 09:14:42,582 - INFO - Data loaders prepared. Feature dimension: 7
+2025-03-25 09:14:42,583 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-25 09:14:42,584 - INFO - Successfully imported model class: attn_cnn
+2025-03-25 09:14:42,584 - INFO - Initializing Classifier
+2025-03-25 09:14:42,646 - INFO - Compiling model with torch.compile()...
+2025-03-25 09:14:43,323 - INFO - Model compiled successfully
+2025-03-25 09:14:43,326 - INFO - TensorBoard logs will be saved to saved_models/attn_cnn/logs/attn_cnn/version_10
+2025-03-25 09:14:43,411 - INFO - Using GPU for training
+2025-03-25 09:14:43,563 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-25 09:14:43,563 - INFO - Starting training...
+2025-03-25 09:23:08,721 - INFO - Training completed. Final model saved to saved_models/attn_cnn/logs/attn_cnn/version_10/attn_cnn-final.ckpt
+2025-03-25 09:23:09,058 - INFO - ---------------------------------------------------
+2025-03-25 09:23:09,058 - INFO - 
+Evaluating model on validation set...
+2025-03-25 09:23:09,058 - INFO - === Pass 0 ===================
+2025-03-25 09:23:22,022 - INFO - 
+Validation Set Classification Report:
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.97      0.93      0.95      9587
+       Fraud       0.65      0.84      0.73      1472
+
+    accuracy                           0.92     11059
+   macro avg       0.81      0.88      0.84     11059
+weighted avg       0.93      0.92      0.92     11059
+
+2025-03-25 09:23:22,027 - INFO - 
+Validation Set Classification Report (top 1472):
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.87      0.87      0.87      9587
+       Fraud       0.14      0.14      0.14      1472
+
+    accuracy                           0.77     11059
+   macro avg       0.50      0.50      0.50     11059
+weighted avg       0.77      0.77      0.77     11059
+

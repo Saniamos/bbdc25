@@ -64,7 +64,9 @@ Transactions of C2934430280
 1026553   214   CASH_IN  243380.04  C2934430280     None   742755.56   986135.59                        0          None   22   12.402379
 
 It appears some transactions are missing in the data. i.e. i cannot come up with another explanation of why the newBalance is the same after an action that does not have zero amounts. 
-This happens for non-fraud accounts as well -> i assume the organizers removed random transactions to make the task harder. d
+This happens for non-fraud accounts as well -> i assume the organizers removed random transactions to make the task harder.
+
+Given the plot plots_analyze/non_rescuable_errors_heatmap.pdf it appears we lack the information to detect around 60 fraud accounts. This could be because each model compensates slightly differntly when miss classifying non-fraudsters etc. -> figure out what unifies these 60 accounts and try to feature engineer that. 
 
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
