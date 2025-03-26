@@ -66,21 +66,21 @@ class Features:
         idx = result_df['External'].notna() & result_df['External'].isin(result_df['AccountID'].unique())
         rev = result_df[idx].copy().rename(columns={'AccountID': 'External', 'External': 'AccountID'})
         rev['External_Type'] = rev['External_Type'].apply(lambda x: f"REV_{x}")
-        rev['OldBalance'] = np.nan
-        rev['NewBalance'] = np.nan
+        rev[rev.columns[~np.isin(list(rev.columns), ['Hour', 'ToD', 'DoW', 'Day', 'AccountID', 'Action', 'Amount', 'External', 'External_Type', 'AmountNonAbs'])]] = 0
+        # rev['NewBalance'] = np.nan
         result_df = pd.concat([result_df, rev], ignore_index=True).reset_index().sort_values(['Hour', 'index']).reset_index(drop=True).drop(['index'], axis=1)
 
-        def fill_missing_transactions(group):
-            group = group.reset_index().sort_values(['Hour', 'index']).drop('index', axis=1)  # ensure correct order within the account
-            for pos, idx in enumerate(group.index):
-                if pd.isna(group.at[idx, 'OldBalance']):
-                    last_new_balance = group.iloc[pos-1]['NewBalance']
-                    group.at[idx, 'OldBalance'] = last_new_balance
-                    group.at[idx, 'NewBalance'] = last_new_balance + group.at[idx, 'AmountNonAbs']
-            return group
+        # def fill_missing_transactions(group):
+        #     group = group.reset_index().sort_values(['Hour', 'index']).drop('index', axis=1)  # ensure correct order within the account
+        #     for pos, idx in enumerate(group.index):
+        #         if pd.isna(group.at[idx, 'OldBalance']):
+        #             last_new_balance = group.iloc[pos-1]['NewBalance']
+        #             group.at[idx, 'OldBalance'] = last_new_balance
+        #             group.at[idx, 'NewBalance'] = last_new_balance + group.at[idx, 'AmountNonAbs']
+        #     return group
 
-        result_df = result_df.groupby('AccountID', group_keys=False).apply(fill_missing_transactions)
-        result_df[['OldBalance', 'NewBalance']] = result_df[['OldBalance', 'NewBalance']].fillna(0) # in rare cases, e.g. first transaction in account may not be calculatable
+        # result_df = result_df.groupby('AccountID', group_keys=False).apply(fill_missing_transactions)
+        # result_df[['OldBalance', 'NewBalance']] = result_df[['OldBalance', 'NewBalance']].fillna(0) # in rare cases, e.g. first transaction in account may not be calculatable
 
         assert result_df.drop(['External', 'External_Type'], axis=1).isna().sum().sum() == 0, f"Missing values in result_df: {result_df.isna().sum()}"
         
@@ -117,8 +117,8 @@ if __name__ == "__main__":
 
     x_val_df = pd.read_parquet(VAL_X_PATH)
     y_val_df = pd.read_parquet(VAL_Y_PATH)
-    # val = pd.merge(x_val_df, y_val_df, on="AccountID")[:100_000]
-    val = pd.merge(x_val_df, y_val_df, on="AccountID")
+    val = pd.merge(x_val_df, y_val_df, on="AccountID")[:100_000]
+    # val = pd.merge(x_val_df, y_val_df, on="AccountID")
     X_val = val.drop(columns=["Fraudster"])
     y_val = val["Fraudster"]
 

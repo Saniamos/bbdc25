@@ -34,7 +34,8 @@ class AccountTransactionDataset(Dataset):
                  normalize=True,
                  mask=True,
                  log_fn=print,
-                 precompute=False):
+                 precompute=False,
+                 highest_input=False):
         """
         Initialize the dataset with feature and label dataframes.
         
@@ -48,6 +49,11 @@ class AccountTransactionDataset(Dataset):
             log_fn: Logging function
             precompute: Whether to precompute and cache all tensors
         """
+        self.highest_input = highest_input
+        if self.highest_input:
+            self.account_ids_highest_map = features_df[features_df['External_Type'] == 'customer'].groupby('External').apply(lambda g: g['AccountID'].value_counts().idxmin()).to_dict()
+            # max_seq_len = max_seq_len * 2
+
         # Identify string columns for encoding
         str_cols = features_df.select_dtypes(include=[object]).columns
         log_fn(f'String columns: {list(str_cols)}')
@@ -75,6 +81,7 @@ class AccountTransactionDataset(Dataset):
         # Store fraud labels and account IDs
         self.fraud_bools = labels_df['Fraudster'].values
         self.account_ids = labels_df['AccountID'].values
+        self.account_map = labels_df['AccountID'].reset_index().set_index('AccountID')['index'].to_dict()
         _tmp_enc = LabelEncoder().fit(list(features_df['AccountID'].values) + list(features_df['External'].unique()))
         log_fn(f'Total of {_tmp_enc.classes_.shape[0]} unique accounts')
         self.account_ids_enc = _tmp_enc.transform(labels_df['AccountID'])
@@ -178,6 +185,10 @@ class AccountTransactionDataset(Dataset):
         """Return array of fraud labels."""
         return self.fraud_bools
     
+    # def get_idx_account(self, account_id):
+    #     """Return array of account IDs."""
+    #     return self.account_map[account_id]
+    
     def get_account_ids(self):
         """Return array of account IDs."""
         return self.account_ids
@@ -208,6 +219,22 @@ class AccountTransactionDataset(Dataset):
         # Extract features and determine sequence length
         features = item['features']
         seq_len = features.shape[0]
+        label = item['label']
+
+        if self.highest_input:
+            highest_input_account = self.account_ids_highest_map.get(self.account_ids[idx], None)
+            if highest_input_account is None:
+                highest_input_account = self.account_ids[idx] # if no external account is present, use the account itself
+            highest_input_idx = self.account_map[highest_input_account]
+            if self.precompute:
+                item2 = self.precomputed_data[highest_input_idx]
+            else:
+                item2 = self._process_account_data(idx=highest_input_idx)
+            
+            border = np.ones((1, self.feature_dim), dtype=np.float16) * -1
+            features = np.concatenate([features, border, item2['features']], axis=0)
+            seq_len = features.shape[0]
+            # label = torch.from_numpy(np.concatenate([label, item2['label']], axis=0))
 
         # Compute evenly spaced indices in [0, max_seq_len-1]
         # We do this to be able to pass more information through the cnn layers. not sure if it actually works that way, but worht a try
@@ -238,13 +265,16 @@ class AccountTransactionDataset(Dataset):
         
         # Process external account ids using the same spacing
         ext_enc = item['external_account_ids_enc']
+        if self.highest_input and highest_input_account is not None:
+            ext_enc = np.concatenate([ext_enc, [-1], item2['external_account_ids_enc']], axis=0)
         external_full = torch.zeros((self.max_seq_len, 1), dtype=torch.int)
         external_full[indices] = torch.from_numpy(ext_enc).unsqueeze(1).int()
+
         
         return dict(masked_features=masked_features,
                     masked_pos=masked_pos,
                     padded_features=padded_features,
-                    label=item['label'],
+                    label=label,
                     account_id_enc=item['account_id_enc'],
                     external_account_ids_enc=external_full)
     
@@ -488,7 +518,7 @@ if __name__ == "__main__":
     
     num_workers = 0
     val_loader = DataLoader(
-        prepare_dataset('ver05', mask=False, log_fn=print, fn=load_val, max_seq_len=1024),
+        prepare_dataset('ver05', mask=False, log_fn=print, fn=load_val, max_seq_len=1024, highest_input=True),
         shuffle=False,
         drop_last=False,
         batch_size=32,

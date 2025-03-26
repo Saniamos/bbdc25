@@ -2,29 +2,34 @@ import torch
 import pytorch_lightning as pl
 from torch import nn
 import torch.nn.functional as F
+import numpy as np
+
+# as determined by uploads, see readme
+N_FRAUDSTERS = {
+    'train': 1411,
+    'val': 1472,
+    'test': 1267
+}
 
 class Classifier(pl.LightningModule):
-    """
-    Simple CNN-based model for fraud detection in transaction sequences.
-    Uses 8 layers of CNNs to process transaction data.
-    """
     def __init__(
         self,
         feature_dim,
-        pretrained_model_path=None,  # Not used but kept for compatibility
+        pretrained_model_path=None,
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
-        freeze_bert=False,  # Not used but kept for compatibility
-        hidden_dim=256,
+        freeze_bert=False,
+        hidden_dim=128,
         warmup_steps=100,
         max_lr=5e-4,
-        min_lr=1e-5
+        min_lr=1e-5,
+        num_accounts=50_000,
+        pred_state_dim=16  # new: dimension of per-sample hidden state via GRU
     ):
         super().__init__()
         self.save_hyperparameters()
         
-        # Architecture constants
         self.feature_dim = feature_dim
         self.dropout_rate = dropout
         self.hidden_dim = hidden_dim
@@ -32,75 +37,65 @@ class Classifier(pl.LightningModule):
         self.max_lr = max_lr
         self.min_lr = min_lr
         
-        # Build the CNN model with 8 layers
-        # Layer 1-2: First Conv Block - optimized to use SiLU activation for better gradients
+        # Instead, add a GRU layer to process the input sequence
+        self.gru = nn.GRU(input_size=feature_dim, hidden_size=pred_state_dim, batch_first=True)
+        # Map GRU final hidden state to a fraud feature (a scalar)
+        self.gru_to_score = nn.Linear(pred_state_dim, 1)
+        
+        # Build the CNN model: change input channels from (feature_dim+1) to feature_dim 
         self.cnn_layers = nn.Sequential(
-            # Layer 1
             nn.Conv1d(feature_dim, hidden_dim, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),  # More efficient activation function
+            nn.SiLU(inplace=True),
             nn.Dropout(dropout),
-            
-            # Layer 2
             nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim),
             nn.SiLU(inplace=True),
             nn.MaxPool1d(kernel_size=2, stride=2),
             nn.Dropout(dropout),
-            
-            # Layer 3-4: Second Conv Block
             nn.Conv1d(hidden_dim, hidden_dim*2, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim*2),
             nn.SiLU(inplace=True),
             nn.Dropout(dropout),
-            
-            # Layer 4
             nn.Conv1d(hidden_dim*2, hidden_dim*2, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim*2),
             nn.SiLU(inplace=True),
             nn.MaxPool1d(kernel_size=2, stride=2),
             nn.Dropout(dropout),
-            
-            # Layer 5-6: Third Conv Block
             nn.Conv1d(hidden_dim*2, hidden_dim*4, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim*4),
             nn.SiLU(inplace=True),
             nn.Dropout(dropout),
-            
-            # Layer 6
             nn.Conv1d(hidden_dim*4, hidden_dim*4, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim*4),
             nn.SiLU(inplace=True),
             nn.MaxPool1d(kernel_size=2, stride=2),
             nn.Dropout(dropout),
-            
-            # Layer 7-8: Final Conv Block
             nn.Conv1d(hidden_dim*4, hidden_dim*2, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim*2),
             nn.SiLU(inplace=True),
             nn.Dropout(dropout),
-            
-            # Layer 8
             nn.Conv1d(hidden_dim*2, hidden_dim, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm1d(hidden_dim),
             nn.SiLU(inplace=True),
-            nn.AdaptiveAvgPool1d(1),  # Global average pooling
+            nn.AdaptiveAvgPool1d(1),
         )
         
-        # Final classifier
+        # Update classifier to accept hidden_dim+1 features (adding fraud feature)
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim, 64),
+            nn.Linear(hidden_dim+1, 64),
             nn.SiLU(inplace=True),
-            nn.Dropout(dropout/2),
+            nn.Dropout(self.dropout_rate/2),
             nn.Linear(64, 1)
         )
         
-        # Initialize weights for faster convergence
+        # Persistent GRU state to be carried across batches
+        self.hidden_state = None
+
         self._init_weights()
-        self.account_predictions = {}  # Initialize account predictions
-        
+    
     def _init_weights(self):
-        """Initialize weights using He initialization for better training dynamics"""
+        """Initialize weights using He initialization"""
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
@@ -111,78 +106,57 @@ class Classifier(pl.LightningModule):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        """
-        Args:
-            x: Transaction sequences [batch_size, seq_len, feature_dim]            
-        Returns:
-            Fraud probability logits
-        """
+    
+    def forward(self, x, external_account_ids_enc=None):
         batch_size, seq_len, _ = x.shape
-        
-        # Permute to [batch_size, feature_dim, seq_len] for Conv1d
-        x = x.permute(0, 2, 1)
-        
-        # Apply CNN layers
-        x = self.cnn_layers(x)
-        
-        # Flatten and pass through classifier
-        x = x.view(batch_size, -1)
-        logits = self.classifier(x)
-        
+        # Initialize or adjust persistent hidden state if needed
+        if self.hidden_state is None or self.hidden_state.size(1) != batch_size:
+            self.hidden_state = torch.zeros(1, batch_size, self.hparams.pred_state_dim, device=x.device)
+        # Use persistent hidden state in GRU forward pass
+        _, h = self.gru(x, self.hidden_state)
+        # Update persistent hidden state (detach to avoid backprop across batches if undesired)
+        self.hidden_state = h.detach()
+        fraud_feature = self.gru_to_score(h.squeeze(0))  # (batch_size, 1)
+        fraud_feature = fraud_feature.unsqueeze(1).expand(batch_size, seq_len, 1)
+        # Process x through CNN.
+        x_cnn = x.permute(0, 2, 1)               # (batch_size, feature_dim, seq_len)
+        cnn_feat = self.cnn_layers(x_cnn)        # (batch_size, hidden_dim, 1)
+        cnn_feat = cnn_feat.view(batch_size, -1) # (batch_size, hidden_dim)
+        # Concatenate fraud feature.
+        combined = torch.cat([cnn_feat, fraud_feature[:, 0, :]], dim=1)  # (batch_size, hidden_dim+1)
+        logits = self.classifier(combined)
         return logits
     
     def training_step(self, batch, batch_idx):
-        # Updated for dictionary return from __getitem__
-        x = batch['padded_features']
-        y = batch['label']
-        logits = self(x)
-        y = y.float()  # Ensure labels are float for BCE loss
-        
-        # Calculate weighted BCE loss - giving higher weight to minority class (fraud)
-        # Since fraud is 12% of the dataset, we use pos_weight = 88/12 ≈ 7.33
-        pos_weight = torch.tensor([7.33], device=logits.device)
-        loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
-        self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        # Updated for dictionary return from __getitem__
         x = batch['padded_features']
         y = batch['label']
         logits = self(x)
         y = y.float()
-        
-        # Calculate weighted BCE loss for consistency with training
-        pos_weight = torch.tensor([7.33], device=logits.device)
+        pos_weight = torch.tensor([8], device=logits.device)
+        loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
+        self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        x = batch['padded_features']
+        y = batch['label']
+        logits = self(x)
+        y = y.float()
+        pos_weight = torch.tensor([8], device=logits.device)
         val_loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
         probs = torch.sigmoid(logits.view(-1))
         preds = (probs > 0.5).float()
-        
-        # Calculate F1 score specifically for fraud class (class 1)
-        y_true = y.view(-1)
-        y_pred = preds
-        
-        # True positives, false positives, false negatives for FRAUD class
-        fraud_tp = torch.logical_and(y_true == 1, y_pred == 1).sum().float()
-        fraud_fp = torch.logical_and(y_true == 0, y_pred == 1).sum().float()
-        fraud_fn = torch.logical_and(y_true == 1, y_pred == 0).sum().float()
-        
-        # Precision and recall for FRAUD class with epsilon to avoid division by zero
         epsilon = 1e-7
+        fraud_tp = torch.logical_and(y.view(-1) == 1, preds == 1).sum().float()
+        fraud_fp = torch.logical_and(y.view(-1) == 0, preds == 1).sum().float()
+        fraud_fn = torch.logical_and(y.view(-1) == 1, preds == 0).sum().float()
         fraud_precision = fraud_tp / (fraud_tp + fraud_fp + epsilon)
         fraud_recall = fraud_tp / (fraud_tp + fraud_fn + epsilon)
-        
-        # F1 score for FRAUD class
         fraud_f1 = 2 * (fraud_precision * fraud_recall) / (fraud_precision + fraud_recall + epsilon)
-        
-        # Log metrics
         self.log_dict({
-            "val_loss": val_loss, 
+            "val_loss": val_loss,
             "val_fraud_f1": fraud_f1
         }, prog_bar=True, sync_dist=True)
-        
         return {
             "val_loss": val_loss,
             "val_fraud_f1": fraud_f1,
@@ -224,9 +198,7 @@ class Classifier(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        """
-        Prediction step for generating fraud probabilities and predictions.
-        """
+        # Updated for dictionary return from __getitem__
         x = batch['padded_features']
         
         # Forward pass
@@ -240,6 +212,21 @@ class Classifier(pl.LightningModule):
         
         return {"probs": probs, "preds": preds}
 
+    def reset_account_pred_state(self, num_accounts=None):
+        pass  # no longer used since state is not persistent.
+
+    def on_train_epoch_start(self):
+        # Optionally do not reset to allow state carry over across the entire training phase
+        pass
+
+    def on_validation_start(self):
+        # Reset the persistent state before validation to avoid contamination from training
+        self.hidden_state = None
+
+    def on_predict_start(self):
+        # Reset the persistent state before prediction
+        self.hidden_state = None
+
 
 if __name__ == "__main__":
     # Test model creation
@@ -250,5 +237,5 @@ if __name__ == "__main__":
     batch_size, seq_len, feature_dim = 4, 100, 68
     x = torch.randn(batch_size, seq_len, feature_dim)
     mask = torch.ones(batch_size, seq_len)
-    output = model(x, mask)
+    output = model(x)
     print(f"Output shape: {output.shape}")

@@ -51,10 +51,19 @@ ver04: 0.92 -- 14
 ver06: 0.91 -- 30
 ver07: 0.91 -- 31
 --- (some more changes) ---
+attn tensor versions of interest: 11 and 22
+--- (some more changes) ---
 version, fraud f1, tensorboard log, model 
 ver05: 0.94 -- 33 (simple_cnn)
 ver11: 0.91 -- 34 (simple_cnn)
 ver11: 0.91 -- 19 (rec_cnn)
+ver05(input): 0.67 -- 37 (simple_cnn, mx 4048)
+ver05(input): 0.70 -- 38 (simple_cnn, mx 2024)
+ver05(input): 0.79 -- 40 (simple_cnn, min 2024)
+ver05(input): 0.73 -- 23 (attn_cnn, min 2024)
+
+Note: highest count is probably not the best metric for the inputer, but in the case of the 69 non-recoverable fraud cases they only got input from other fraudsters, so this should still work quite well. -> actually then maybe the smallest is even better, as it messes the least with the previous model.
+
 # Error Analysis:
 Transactions of C2934430280
 

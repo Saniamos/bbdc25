@@ -73,14 +73,14 @@ def import_model_class(python_file_base, logger):
 
 def train_model(logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
                continue_from_checkpoint, num_train_epochs, val_every_epoch, 
-               learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp):
+               learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp, add_inputer):
     """Train the model and save checkpoints"""
     
     logger.info("Preparing datasets for training...")
     
     
     logger.info("Loading training data...")
-    train_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, log_fn=logger.info, fn=load_train)
+    train_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_train)
     train_loader = DataLoader(
         train_dataset, 
         shuffle=True,
@@ -89,7 +89,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
     )    
     
     logger.info("Loading validation data...")
-    val_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, log_fn=logger.info, fn=load_val)
+    val_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_val)
     val_loader = DataLoader(
         val_dataset, 
         shuffle=False,
@@ -229,7 +229,7 @@ def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
     n = 1
     if hasattr(model, 'reset_account_pred_state'):
         model.reset_account_pred_state()
-        n = 4
+        n = 3
     for i in range(n):
         logger.info(f"=== Pass {i} ===================")
         # Use the PyTorch Lightning predict method which calls our predict_step
@@ -282,7 +282,7 @@ def generate_train_predictions(logger, trainer, model, common_args, train_datase
     n = 1
     if hasattr(model, 'reset_account_pred_state'):
         model.reset_account_pred_state()
-        n = 4
+        n = 3
     for i in range(n):
         logger.info(f"=== Pass {i} ===================")
         train_predictions = trainer.predict(model, train_loader_pred, ckpt_path="best")
@@ -308,7 +308,7 @@ def generate_train_predictions(logger, trainer, model, common_args, train_datase
     
     return predictions_output
 
-def generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file):
+def generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file, add_inputer):
     """Generate predictions on the test set and save to CSV"""
     
     logger.info('---------------------------------------------------')
@@ -316,7 +316,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
     
     logger.info("Loading test data...")
     test_loader = DataLoader(
-        prepare_dataset(data_version, mask=False, precompute=precompute, log_fn=logger.info, fn=load_test),
+        prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_test),
         shuffle=False,
         drop_last=False,
         **common_args
@@ -375,7 +375,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
               help="Path to pre-trained SSL model (only needed for certain model types)")
 
 # Model parameters
-@click.option("--model_class", default="rec_cnn", type=str, 
+@click.option("--model_class", default="simple_cnn", type=str, 
               help="Model class to use (module.ClassName format)")
 @click.option("--freeze_bert", is_flag=True, default=True, help="Whether to freeze BERT weights")
 
@@ -399,9 +399,10 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 @click.option("--skip_validation", is_flag=True, help="Skip validation evaluation")
 @click.option("--skip_test", is_flag=True, help="Skip test prediction")
 @click.option("--comp", is_flag=True, default=False, help="Compile model if available (PyTorch 2.0+)")
+@click.option("--add_inputer", is_flag=True, default=False, help="Add inputer to model")
 def main(model_class, data_version, precompute, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
          num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
-         skeleton_file, skip_train, skip_validation, skip_test, comp):
+         skeleton_file, skip_train, skip_validation, skip_test, comp, add_inputer):
     
     # Setup logging
     logger = setup_logger(model_class)
@@ -414,7 +415,8 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
     val_every_epoch = min(val_every_epoch, num_train_epochs)
     logger.info(f"val_every_epoch={val_every_epoch}, learning_rate={learning_rate}, weight_decay={weight_decay}")
     logger.info(f"seed={seed}, num_workers={num_workers}, patience={patience}")
-    
+    logger.info(f"Highest Inputer={add_inputer}")
+
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -438,7 +440,8 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
         model, trainer, final_model_path, train_dataset, val_dataset = train_model(
             logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
             continue_from_checkpoint, num_train_epochs, val_every_epoch, 
-            learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp
+            learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp,
+            add_inputer
         )
     else:
         # Load existing model
@@ -477,7 +480,7 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
     
     if not skip_test:
         # Generate test predictions
-        generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file)
+        generate_test_predictions(logger, trainer, model, data_version, precompute, common_args, skeleton_file, add_inputer)
     
     logger.info("Process complete!")
 
