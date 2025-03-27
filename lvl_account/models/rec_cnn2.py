@@ -3,6 +3,8 @@ import pytorch_lightning as pl
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
+from models.simple_cnn import Classifier as SimpleCNN
+from models.attn_cnn import AttentionBlock
 
 # as determined by uploads, see readme
 N_FRAUDSTERS = {
@@ -15,17 +17,16 @@ class Classifier(pl.LightningModule):
     def __init__(
         self,
         feature_dim,
-        pretrained_model_path=None,
+        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/rec_cnn_base/simple_cnn-epoch=14-val_fraud_f1=0.9264.ckpt",
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
-        freeze_bert=False,
-        hidden_dim=128,
+        freeze_pretrained_model=True,
+        hidden_dim=256,
         warmup_steps=100,
         max_lr=5e-4,
         min_lr=1e-5,
-        num_accounts=50_000,
-        pred_state_dim=16  # new: dimension of per-account hidden state
+        pred_state_dim=256
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -37,53 +38,17 @@ class Classifier(pl.LightningModule):
         self.max_lr = max_lr
         self.min_lr = min_lr
         
-        # Instead of a default prediction, we now have a per-account hidden state.
-        self.pred_state_dim = pred_state_dim
-        # Initialize per-account hidden state buffer: shape [num_accounts, pred_state_dim]
-        self.register_buffer("account_hidden_state", torch.zeros(num_accounts, pred_state_dim, dtype=torch.float))
-        # GRU cell to update the hidden state.
-        self.rnn_cell = nn.GRUCell(input_size=1, hidden_size=pred_state_dim)
-        # Map the hidden state to a fraud feature (a scalar) used as an extra channel.
-        self.hidden_to_score = nn.Linear(pred_state_dim, 1)
-        
-        # Build the CNN model (note: input channels = feature_dim + 1)
-        self.cnn_layers = nn.Sequential(
-            nn.Conv1d(feature_dim + 1, hidden_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim, hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*2, hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*2, hidden_dim*4, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*4),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*4, hidden_dim*4, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*4),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*4, hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*2, hidden_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),
-            nn.AdaptiveAvgPool1d(1),
-        )
+        # Instead of building the CNN layers manually, load pretrained cnn_layers from SimpleCNN.
+        simple_cnn = SimpleCNN(feature_dim=self.hparams.feature_dim)
+        pretrained_cnn = torch.load(self.hparams.pretrained_model_path, map_location=torch.device('cpu'))
+        if "state_dict" in pretrained_cnn:
+            pretrained_cnn = pretrained_cnn["state_dict"]
+        # Load the checkpoint into the simple_cnn model (using strict=False to bypass missing keys)
+        simple_cnn.load_state_dict(pretrained_cnn, strict=False)
+        # Use the pretrained cnn_layers and freeze them.
+        self.cnn_layers = simple_cnn.cnn_layers
+        for param in self.cnn_layers.parameters():
+            param.requires_grad = not freeze_pretrained_model
         
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim, 64),
@@ -91,21 +56,6 @@ class Classifier(pl.LightningModule):
             nn.Dropout(dropout/2),
             nn.Linear(64, 1)
         )
-        
-        self._init_weights()
-    
-    def _init_weights(self):
-        """Initialize weights using He initialization"""
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
     
     def add_prediction_feature(self, x, external_account_ids_enc):
         """

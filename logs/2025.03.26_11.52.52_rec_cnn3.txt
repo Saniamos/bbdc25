@@ -1,0 +1,31 @@
+2025-03-26 11:52:52,656 - INFO - Logging to file: logs/2025.03.26_11.52.52_rec_cnn3.txt
+2025-03-26 11:52:52,656 - INFO - Configuration: data_version=ver11, model_class=rec_cnn3
+2025-03-26 11:52:52,656 - INFO - pretrained_model_path=None, output_dir=saved_models/rec_cnn3
+2025-03-26 11:52:52,656 - INFO - freeze_pretrained_model=True, batch_size=128, epochs=1
+2025-03-26 11:52:52,656 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
+2025-03-26 11:52:52,656 - INFO - seed=42, num_workers=0, patience=3
+2025-03-26 11:52:52,657 - INFO - Highest Inputer=False
+2025-03-26 11:52:52,658 - INFO - Set random seed to 42
+2025-03-26 11:52:52,658 - INFO - Preparing datasets for training...
+2025-03-26 11:52:52,658 - INFO - Loading training data...
+2025-03-26 11:52:55,305 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-26 11:52:58,322 - INFO - Normalizing 104 numeric columns
+2025-03-26 11:53:02,535 - INFO - Total of 45816 unique accounts
+2025-03-26 11:53:03,342 - INFO - Loaded dataset with 11059 accounts and 1774722 transactions
+2025-03-26 11:53:03,342 - INFO - Feature columns: 106 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'NumExternalAccountsNone', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89', 'AmountNonAbs']
+2025-03-26 11:53:03,343 - INFO - Fraud accounts: 1411 (12.76%)
+2025-03-26 11:53:04,055 - INFO - Loading validation data...
+2025-03-26 11:53:06,624 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-26 11:53:09,954 - INFO - Normalizing 104 numeric columns
+2025-03-26 11:53:14,498 - INFO - Total of 45816 unique accounts
+2025-03-26 11:53:15,304 - INFO - Loaded dataset with 11059 accounts and 1807354 transactions
+2025-03-26 11:53:15,304 - INFO - Feature columns: 106 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'NumExternalAccountsNone', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89', 'AmountNonAbs']
+2025-03-26 11:53:15,304 - INFO - Fraud accounts: 1472 (13.31%)
+2025-03-26 11:53:17,380 - INFO - Data loaders prepared. Feature dimension: 106
+2025-03-26 11:53:17,380 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-26 11:53:17,382 - INFO - Successfully imported model class: rec_cnn3
+2025-03-26 11:53:17,382 - INFO - Initializing Classifier
+2025-03-26 11:53:17,470 - INFO - TensorBoard logs will be saved to saved_models/rec_cnn3/logs/rec_cnn3/version_11
+2025-03-26 11:53:17,663 - INFO - Using GPU for training
+2025-03-26 11:53:17,741 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-26 11:53:17,741 - INFO - Starting training...

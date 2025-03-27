@@ -1,0 +1,12 @@
+2025-03-27 09:26:20,170 - INFO - Logging to file: logs/2025.03.27_09.26.20_simple_cnn.txt
+2025-03-27 09:26:20,170 - INFO - Configuration: data_version=ver12, model_class=simple_cnn
+2025-03-27 09:26:20,170 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
+2025-03-27 09:26:20,170 - INFO - freeze_pretrained_model=True, batch_size=128, epochs=1
+2025-03-27 09:26:20,171 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
+2025-03-27 09:26:20,171 - INFO - seed=42, num_workers=0, patience=3
+2025-03-27 09:26:20,171 - INFO - Highest Inputer=False
+2025-03-27 09:26:20,173 - INFO - Set random seed to 42
+2025-03-27 09:26:20,173 - INFO - Preparing datasets for training...
+2025-03-27 09:26:20,173 - INFO - Loading training data...
+2025-03-27 09:26:23,650 - INFO - String columns: ['AccountID', 'External', 'External_Type']
+2025-03-27 09:26:28,016 - INFO - Normalizing 168 numeric columns

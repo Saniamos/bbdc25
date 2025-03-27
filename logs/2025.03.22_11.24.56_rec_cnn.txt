@@ -1,7 +1,7 @@
 2025-03-22 11:24:56,136 - INFO - Logging to file: logs/2025.03.22_11.24.56_rec_cnn.txt
 2025-03-22 11:24:56,137 - INFO - Configuration: data_version=ver05, model_class=rec_cnn
 2025-03-22 11:24:56,137 - INFO - pretrained_model_path=None, output_dir=saved_models/rec_cnn
-2025-03-22 11:24:56,137 - INFO - freeze_bert=True, batch_size=128, epochs=1
+2025-03-22 11:24:56,137 - INFO - freeze_pretrained_model=True, batch_size=128, epochs=1
 2025-03-22 11:24:56,137 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
 2025-03-22 11:24:56,137 - INFO - seed=42, num_workers=0, patience=3
 2025-03-22 11:24:56,139 - INFO - Set random seed to 42

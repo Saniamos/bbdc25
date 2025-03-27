@@ -1,0 +1,10 @@
+2025-03-26 12:23:46,953 - INFO - Logging to file: logs/2025.03.26_12.23.46_attn_cnn.txt
+2025-03-26 12:23:46,953 - INFO - Configuration: data_version=ver08, model_class=attn_cnn
+2025-03-26 12:23:46,953 - INFO - pretrained_model_path=None, output_dir=saved_models/attn_cnn
+2025-03-26 12:23:46,954 - INFO - freeze_pretrained_model=True, batch_size=221, epochs=40
+2025-03-26 12:23:46,954 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
+2025-03-26 12:23:46,954 - INFO - seed=42, num_workers=0, patience=3
+2025-03-26 12:23:46,954 - INFO - Highest Inputer=False
+2025-03-26 12:23:46,955 - INFO - Set random seed to 42
+2025-03-26 12:23:46,955 - INFO - Preparing datasets for training...
+2025-03-26 12:23:46,955 - INFO - Loading training data...

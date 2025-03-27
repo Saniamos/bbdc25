@@ -71,7 +71,7 @@ def import_model_class(python_file_base, logger):
         raise ImportError(f"Could not import model class '{python_file_base}': {e}")
 
 
-def train_model(logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
+def train_model(logger, model_class, data_version, precompute, pretrained_model_path, freeze_pretrained_model, 
                continue_from_checkpoint, num_train_epochs, val_every_epoch, 
                learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp, add_inputer):
     """Train the model and save checkpoints"""
@@ -126,10 +126,10 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
         "weight_decay": weight_decay
     }
 
-    # Only add pretrained_model_path and freeze_bert if pretrained model is provided
+    # Only add pretrained_model_path and freeze_pretrained_model if pretrained model is provided
     if pretrained_model_path is not None:
         model_kwargs["pretrained_model_path"] = pretrained_model_path
-        model_kwargs["freeze_bert"] = freeze_bert
+        model_kwargs["freeze_pretrained_model"] = freeze_pretrained_model
 
     # Initialize the model with appropriate arguments
     model = ModelClass(**model_kwargs)
@@ -166,8 +166,9 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
         filename=base_pt_name + '-{epoch:02d}-{val_fraud_f1:.4f}',
         save_top_k=3,
         mode='max',
-        save_weights_only=True
     )
+
+    torch.autograd.set_detect_anomaly(True)
     
     # Initialize trainer
     trainer = pl.Trainer(
@@ -180,6 +181,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
         fast_dev_run=dry_run,
         check_val_every_n_epoch=val_every_epoch,
         benchmark=True,  # Optimize CUDA operations
+        gradient_clip_val=1.0,
     )
     
     device_info = "GPU" if torch.cuda.is_available() else "CPU"
@@ -369,7 +371,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 
 @click.command()
 # Data parameters
-@click.option("--data_version", default="ver05", type=str, help="Data version to use")
+@click.option("--data_version", default="ver12", type=str, help="Data version to use")
 @click.option("--precompute", default=False, is_flag=True, help="If True, precompute features and save to disk")
 @click.option("--pretrained_model_path", required=False, default=None, type=str, 
               help="Path to pre-trained SSL model (only needed for certain model types)")
@@ -377,7 +379,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 # Model parameters
 @click.option("--model_class", default="simple_cnn", type=str, 
               help="Model class to use (module.ClassName format)")
-@click.option("--freeze_bert", is_flag=True, default=True, help="Whether to freeze BERT weights")
+@click.option("--freeze_pretrained_model", is_flag=True, default=True, help="Whether to freeze BERT weights")
 
 @click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
 
@@ -400,7 +402,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 @click.option("--skip_test", is_flag=True, help="Skip test prediction")
 @click.option("--comp", is_flag=True, default=False, help="Compile model if available (PyTorch 2.0+)")
 @click.option("--add_inputer", is_flag=True, default=False, help="Add inputer to model")
-def main(model_class, data_version, precompute, pretrained_model_path, freeze_bert, continue_from_checkpoint, batch_size, 
+def main(model_class, data_version, precompute, pretrained_model_path, freeze_pretrained_model, continue_from_checkpoint, batch_size, 
          num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
          skeleton_file, skip_train, skip_validation, skip_test, comp, add_inputer):
     
@@ -411,7 +413,7 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
     logger.info(f"Configuration: data_version={data_version}, model_class={model_class}")
     output_dir = os.path.join("saved_models", model_class)
     logger.info(f"pretrained_model_path={pretrained_model_path}, output_dir={output_dir}")
-    logger.info(f"freeze_bert={freeze_bert}, batch_size={batch_size}, epochs={num_train_epochs}")
+    logger.info(f"freeze_pretrained_model={freeze_pretrained_model}, batch_size={batch_size}, epochs={num_train_epochs}")
     val_every_epoch = min(val_every_epoch, num_train_epochs)
     logger.info(f"val_every_epoch={val_every_epoch}, learning_rate={learning_rate}, weight_decay={weight_decay}")
     logger.info(f"seed={seed}, num_workers={num_workers}, patience={patience}")
@@ -438,7 +440,7 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_be
     if not skip_train:
         # Train the model
         model, trainer, final_model_path, train_dataset, val_dataset = train_model(
-            logger, model_class, data_version, precompute, pretrained_model_path, freeze_bert, 
+            logger, model_class, data_version, precompute, pretrained_model_path, freeze_pretrained_model, 
             continue_from_checkpoint, num_train_epochs, val_every_epoch, 
             learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp,
             add_inputer

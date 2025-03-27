@@ -15,7 +15,7 @@ class Classifier(pl.LightningModule):
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
-        freeze_bert=False,  # Not used but kept for compatibility
+        freeze_pretrained_model=False,  # Not used but kept for compatibility
         hidden_dim=256,
         warmup_steps=100,
         max_lr=5e-4,

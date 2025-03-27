@@ -1,7 +1,7 @@
 2025-03-24 16:13:39,332 - INFO - Logging to file: logs/2025.03.24_16.13.39_attn_cnn2.txt
 2025-03-24 16:13:39,332 - INFO - Configuration: data_version=ver09, model_class=attn_cnn2
 2025-03-24 16:13:39,332 - INFO - pretrained_model_path=None, output_dir=saved_models/attn_cnn2
-2025-03-24 16:13:39,332 - INFO - freeze_bert=True, batch_size=221, epochs=50
+2025-03-24 16:13:39,332 - INFO - freeze_pretrained_model=True, batch_size=221, epochs=50
 2025-03-24 16:13:39,332 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
 2025-03-24 16:13:39,332 - INFO - seed=42, num_workers=0, patience=3
 2025-03-24 16:13:39,334 - INFO - Set random seed to 42

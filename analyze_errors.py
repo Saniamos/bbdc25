@@ -34,33 +34,126 @@ def det_color(fraudster, external_type):
         return dict(
             bank = 'yellow',
             merchant = 'blue')[external_type]
-
+    
 def plot_neighbor_graphs(error_accounts, predicted_map, merged_df, two_accounts_df, n_plots_square, title, filename):
-        fraud_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_true']))
+    true_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_true']))
+    graphs = []  # list to store each graph for an error account
+    # Build graphs without drawing yet.
+    for acc in error_accounts['AccountID']:
+        G = nx.Graph()
+        G.add_node(acc)
+        G.nodes[acc]['true'] = true_map.get(acc, 0)
+        G.nodes[acc]['pred'] = predicted_map.get(acc, 0)
         
-        fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
-        axs = axs.flatten()
-        for idx, acc in enumerate(error_accounts['AccountID']):
-            G = nx.Graph()
-            G.add_node(acc, fraud=fraud_map.get(acc, 0))
-            # Select neighbor transactions; assumes two_accounts_df has columns: AccountID, External, External_Type, Hour, Action, Amount
-            neighbors = two_accounts_df[two_accounts_df['AccountID'] == acc]
-            for _, row in neighbors.iterrows():
-                nb = row['External']
-                G.add_node(nb, fraud=fraud_map.get(nb, 0), external_type=row['External_Type'])
-                edge_label = f"{row['Hour']}:{row['Action'][:1]}\n {row['Amount']}"
-                G.add_edge(acc, nb, label=edge_label)
-            pos = nx.spring_layout(G)
-            node_colors = [det_color(G.nodes[n].get('fraud', 0) == 1, G.nodes[n].get('external_type')) for n in G.nodes()]
-            nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, ax=axs[idx])
-            edge_labels = nx.get_edge_attributes(G, 'label')
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=axs[idx])
-            predicted = predicted_map.get(acc, "N/A")
-            axs[idx].set_title(f"Acc: {acc} | Pred: {predicted}")
+        # Select neighbor transactions; assumes two_accounts_df has columns: AccountID, External, External_Type, Hour, Action, Amount
+        neighbors = two_accounts_df[two_accounts_df['AccountID'] == acc]
+        for _, row in neighbors.iterrows():
+            nb = row['External']
+            G.add_node(nb)
+            G.nodes[nb]['true'] = true_map.get(nb, 0)
+            G.nodes[nb]['pred'] = predicted_map.get(nb, 0)
+            edge_label = f"{row['Hour']}:{row['Action'][:1]}\n {row['Amount']}"
+            G.add_edge(acc, nb, label=edge_label)
+        graphs.append(G)
+    
+    # Count each node's total occurrence across all graphs
+    global_node_count = {}
+    for G in graphs:
+        for n in G.nodes():
+            global_node_count[n] = global_node_count.get(n, 0) + 1
 
-        plt.suptitle(title)
-        plt.tight_layout()
-        plt.savefig('plots_analyze/' + filename)
+    # Create subplots and draw each graph
+    fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
+    axs = axs.flatten()
+    
+    for idx, G in enumerate(graphs):
+        pos = nx.spring_layout(G)
+        nx.draw_networkx_edges(G, pos, ax=axs[idx])
+        edge_labels = nx.get_edge_attributes(G, 'label')
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=axs[idx])
+        
+        for n in G.nodes():
+            x, y = pos[n]
+            true_val = G.nodes[n].get('true', 0)
+            pred_val = G.nodes[n].get('pred', 0)
+            fill_color = 'red' if true_val == 1 else 'green'
+            border_color = 'red' if pred_val == 1 else 'green'
+            axs[idx].scatter(x, y, s=600, facecolors=fill_color, edgecolors=border_color, linewidths=2, zorder=2)
+            
+            # Draw the node label and highlight if it appears in multiple graphs
+            if global_node_count.get(n, 0) > 1:
+                axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
+                              zorder=3, fontsize=10, fontweight="bold", color="blue")
+            else:
+                axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
+                              zorder=3, fontsize=8)
+            # Now annotate the border with the prediction value (offset downward)
+            
+        axs[idx].set_title(f"Acc: {list(G.nodes())[0]} | Pred: {predicted_map.get(list(G.nodes())[0], 'N/A')}", fontsize=9)
+        axs[idx].axis('off')
+    
+    plt.suptitle(title)
+    plt.tight_layout()
+    plt.savefig('plots_analyze/' + filename)
+
+
+def plot_reverse_neighbor_graphs(error_accounts, predicted_map, merged_df, trans_df, n_plots_square, title, filename):
+    """
+    Plot graphs where the central node is the error account, and neighbors are accounts 
+    that have transactions with this account as their External partner.
+    """
+    true_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_true']))
+    graphs = []
+    for acc in error_accounts['AccountID']:
+        G = nx.Graph()
+        G.add_node(acc)
+        G.nodes[acc]['true'] = true_map.get(acc, 0)
+        G.nodes[acc]['pred'] = predicted_map.get(acc, 0)
+        
+        # Find transactions where this account is the external partner.
+        reverse_neighbors = trans_df[trans_df['External'] == acc]
+        for _, row in reverse_neighbors.iterrows():
+            nb = row['AccountID']
+            G.add_node(nb)
+            G.nodes[nb]['true'] = true_map.get(nb, 0)
+            G.nodes[nb]['pred'] = predicted_map.get(nb, 0)
+            edge_label = f"{row['Hour']}:{row['Action'][:1]}\n {row['Amount']}"
+            G.add_edge(acc, nb, label=edge_label)
+        graphs.append(G)
+    
+    # Compute global node count across all graphs.
+    global_node_count = {}
+    for G in graphs:
+        for n in G.nodes():
+            global_node_count[n] = global_node_count.get(n, 0) + 1
+
+    fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
+    axs = axs.flatten()
+    
+    for idx, G in enumerate(graphs):
+        pos = nx.spring_layout(G)
+        nx.draw_networkx_edges(G, pos, ax=axs[idx])
+        edge_labels = nx.get_edge_attributes(G, 'label')
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=axs[idx])
+        for n in G.nodes():
+            x, y = pos[n]
+            true_val = G.nodes[n].get('true', 0)
+            pred_val = G.nodes[n].get('pred', 0)
+            fill_color = 'red' if true_val == 1 else 'green'
+            border_color = 'red' if pred_val == 1 else 'green'
+            axs[idx].scatter(x, y, s=600, facecolors=fill_color, edgecolors=border_color, linewidths=2, zorder=2)
+            if global_node_count.get(n, 0) > 1:
+                axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
+                              zorder=3, fontsize=10, fontweight="bold", color="blue")
+            else:
+                axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
+                              zorder=3, fontsize=8)
+        axs[idx].set_title(f"Acc: {list(G.nodes())[0]} | Pred: {predicted_map.get(list(G.nodes())[0], 'N/A')}", fontsize=9)
+        axs[idx].axis('off')
+    
+    plt.suptitle(title)
+    plt.tight_layout()
+    plt.savefig('plots_analyze/' + filename)
 
 def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots_square, title, filename):
     """
@@ -126,39 +219,6 @@ def plot_transaction_type_distribution(trans_df, accounts_df, merged_df, n_plots
     plt.tight_layout()
     plt.savefig('plots_analyze/' + filename)
 
-def plot_reverse_neighbor_graphs(error_accounts, predicted_map, merged_df, trans_df, n_plots_square, title, filename):
-    """
-    Plot graphs where the central node is the error account, and neighbors are accounts 
-    that have transactions with this account as their External partner.
-    """
-    fraud_map = dict(zip(merged_df['AccountID'], merged_df['Fraudster_true']))
-    
-    fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
-    axs = axs.flatten()
-    for idx, acc in enumerate(error_accounts['AccountID']):
-        G = nx.Graph()
-        G.add_node(acc, fraud=fraud_map.get(acc, 0))
-        
-        # Find transactions where this account is the external partner
-        reverse_neighbors = trans_df[trans_df['External'] == acc]
-        
-        for _, row in reverse_neighbors.iterrows():
-            nb = row['AccountID']
-            G.add_node(nb, fraud=fraud_map.get(nb, 0))
-            edge_label = f"{row['Hour']}:{row['Action'][:1]}\n {row['Amount']}"
-            G.add_edge(acc, nb, label=edge_label)
-        
-        pos = nx.spring_layout(G)
-        node_colors = [det_color(G.nodes[n].get('fraud', 0) == 1, None) for n in G.nodes()]
-        nx.draw(G, pos, with_labels=True, node_color=node_colors, node_size=600, ax=axs[idx])
-        edge_labels = nx.get_edge_attributes(G, 'label')
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=axs[idx])
-        predicted = predicted_map.get(acc, "N/A")
-        axs[idx].set_title(f"Acc: {acc} | Pred: {predicted}")
-
-    plt.suptitle(title)
-    plt.tight_layout()
-    plt.savefig('plots_analyze/' + filename)
 
 def plot_external_partner_frequency(trans_df, accounts_df, merged_df, n_plots_square, title, filename):
     """
@@ -446,6 +506,15 @@ def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square, ful
             "external_partner_frequency_nonfraud.pdf"
         )
         click.echo("External partner frequency comparison saved to external_partner_frequency_nonfraud.pdf")
+
+
+        # After the existing plot_neighbor_graphs call
+        click.echo("Performing in-depth transaction plots: reverse neighbor graphs")
+        plot_reverse_neighbor_graphs(correct_nonfraud, predicted_map, merged_df, trans_df, n_plots_square, 
+                                "Reverse Neighbor Graphs (accounts that transacted with these accounts)", 
+                                "reverse_neighbor_graph_subplots_nonfraud.pdf")
+        click.echo("Reverse neighbor graphs saved to reverse_neighbor_graph_subplots_nonfraud.pdf")
+
 
         if full:
             click.echo("Performing in-depth transaction plots: transaction plots")

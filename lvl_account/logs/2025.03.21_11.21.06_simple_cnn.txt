@@ -1,7 +1,7 @@
 2025-03-21 11:21:06,045 - INFO - Logging to file: logs/2025.03.21_11.21.06_simple_cnn.txt
 2025-03-21 11:21:06,045 - INFO - Configuration: data_version=ver05, model_class=simple_cnn
 2025-03-21 11:21:06,045 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
-2025-03-21 11:21:06,045 - INFO - freeze_bert=True, batch_size=256, epochs=30
+2025-03-21 11:21:06,045 - INFO - freeze_pretrained_model=True, batch_size=256, epochs=30
 2025-03-21 11:21:06,045 - INFO - val_every_epoch=5, learning_rate=0.0001, weight_decay=0.01
 2025-03-21 11:21:06,045 - INFO - seed=42, num_workers=4, patience=3
 2025-03-21 11:21:06,046 - INFO - Set random seed to 42

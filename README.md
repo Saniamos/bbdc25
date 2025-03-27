@@ -84,6 +84,9 @@ Given the plot plots_analyze/non_rescuable_errors_heatmap.pdf it appears we lack
 ->  given teh reverse_neighbor_graph_subplots.pdf i finally could confirm that the main issue i have is that some fraud accounts are mainly fraud because they recive money from other fraud accounts. This is something we currently do not represent. I've tried with the rec_cnn but could not get it to work. Will re-consider this approach now. 
 -> ah, this also explains the "missing" transactions. 
 
+-> tested a bunch and all the variations on including neighboring accounts did not improve results.
+New hunch: in all error cases the fraudulent behaviour seems to specifically be that the accounts once receive a sum that they to the penny cash out later. i would have expected the model to pick up on that eventually, but i might have had to abstract to much. will try to add one or two features based on this
+
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
 - https://github.com/IBM/AMLSim

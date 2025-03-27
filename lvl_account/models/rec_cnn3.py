@@ -3,6 +3,9 @@ import pytorch_lightning as pl
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
+from models.simple_cnn import Classifier as SimpleCNN
+from models.attn_cnn import AttentionBlock
+
 
 # as determined by uploads, see readme
 N_FRAUDSTERS = {
@@ -15,17 +18,18 @@ class Classifier(pl.LightningModule):
     def __init__(
         self,
         feature_dim,
-        pretrained_model_path=None,
+        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/rec_cnn_base/simple_cnn-epoch=14-val_fraud_f1=0.9264.ckpt",
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
-        freeze_bert=False,
-        hidden_dim=128,
+        freeze_pretrained_model=True,
+        hidden_dim=256,
         warmup_steps=100,
         max_lr=5e-4,
         min_lr=1e-5,
-        num_accounts=50_000,
-        pred_state_dim=16  # new: dimension of per-sample hidden state via GRU
+        pred_state_dim=256,
+        atten_dim = 128,
+        encoder_dim = 64
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -38,99 +42,81 @@ class Classifier(pl.LightningModule):
         self.min_lr = min_lr
         
         # Instead, add a GRU layer to process the input sequence
-        self.gru = nn.GRU(input_size=feature_dim, hidden_size=pred_state_dim, batch_first=True)
-        # Map GRU final hidden state to a fraud feature (a scalar)
-        self.gru_to_score = nn.Linear(pred_state_dim, 1)
+        self.gru = nn.GRU(input_size=self.hparams.hidden_dim + encoder_dim, hidden_size=pred_state_dim, batch_first=True)
         
-        # Build the CNN model: change input channels from (feature_dim+1) to feature_dim 
-        self.cnn_layers = nn.Sequential(
-            nn.Conv1d(feature_dim, hidden_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim, hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*2, hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*2, hidden_dim*4, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*4),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*4, hidden_dim*4, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*4),
-            nn.SiLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*4, hidden_dim*2, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim*2),
-            nn.SiLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Conv1d(hidden_dim*2, hidden_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(hidden_dim),
-            nn.SiLU(inplace=True),
-            nn.AdaptiveAvgPool1d(1),
+        # Instead of building the CNN layers manually, load pretrained cnn_layers from SimpleCNN.
+        simple_cnn = SimpleCNN(feature_dim=self.hparams.feature_dim)
+        pretrained_cnn = torch.load(self.hparams.pretrained_model_path, map_location=torch.device('cpu'))
+        if "state_dict" in pretrained_cnn:
+            pretrained_cnn = pretrained_cnn["state_dict"]
+        # Load the checkpoint into the simple_cnn model (using strict=False to bypass missing keys)
+        simple_cnn.load_state_dict(pretrained_cnn, strict=False)
+        # Use the pretrained cnn_layers and freeze them.
+        self.cnn_layers = simple_cnn.cnn_layers
+        for param in self.cnn_layers.parameters():
+            param.requires_grad = not freeze_pretrained_model
+
+        # self.account_enc = nn.Sequential(
+        #     nn.Linear(2048, self.hparams.hidden_dim),
+        #     nn.SiLU(inplace=True),
+        #     nn.Dropout(dropout),
+        #     nn.LayerNorm(self.hparams.hidden_dim),
+        #     nn.Linear(self.hparams.hidden_dim, self.hparams.hidden_dim),
+        #     nn.SiLU(inplace=True),
+        #     nn.LayerNorm(self.hparams.hidden_dim),
+        # )
+        self.account_enc = nn.Sequential(
+            nn.Linear(2048, encoder_dim),
+            # AttentionBlock(64, num_heads=4, dropout=dropout),            
+            # nn.Linear(64, 64)
         )
-        
-        # Update classifier to accept hidden_dim+1 features (adding fraud feature)
+        # self.classifier = nn.Sequential(
+        #     nn.Linear(self.hparams.pred_state_dim, atten_dim),
+        #     AttentionBlock(atten_dim, num_heads=4, dropout=dropout),            
+        #     nn.Linear(atten_dim, 1)
+        # )
+
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim+1, 64),
+            nn.Linear(self.hparams.pred_state_dim, 64),
             nn.SiLU(inplace=True),
-            nn.Dropout(self.dropout_rate/2),
+            nn.Dropout(dropout/2),
             nn.Linear(64, 1)
         )
         
         # Persistent GRU state to be carried across batches
         self.hidden_state = None
+        self.state_dropout = nn.Dropout(self.hparams.dropout)
 
-        self._init_weights()
-    
-    def _init_weights(self):
-        """Initialize weights using He initialization"""
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-    
-    def forward(self, x, external_account_ids_enc=None):
+    def forward(self, x, external_account_ids_enc):
         batch_size, seq_len, _ = x.shape
-        # Initialize or adjust persistent hidden state if needed
-        if self.hidden_state is None or self.hidden_state.size(1) != batch_size:
-            self.hidden_state = torch.zeros(1, batch_size, self.hparams.pred_state_dim, device=x.device)
-        # Use persistent hidden state in GRU forward pass
-        _, h = self.gru(x, self.hidden_state)
-        # Update persistent hidden state (detach to avoid backprop across batches if undesired)
-        self.hidden_state = h.detach()
-        fraud_feature = self.gru_to_score(h.squeeze(0))  # (batch_size, 1)
-        fraud_feature = fraud_feature.unsqueeze(1).expand(batch_size, seq_len, 1)
         # Process x through CNN.
         x_cnn = x.permute(0, 2, 1)               # (batch_size, feature_dim, seq_len)
         cnn_feat = self.cnn_layers(x_cnn)        # (batch_size, hidden_dim, 1)
         cnn_feat = cnn_feat.view(batch_size, -1) # (batch_size, hidden_dim)
-        # Concatenate fraud feature.
-        combined = torch.cat([cnn_feat, fraud_feature[:, 0, :]], dim=1)  # (batch_size, hidden_dim+1)
-        logits = self.classifier(combined)
+        # Unsqueeze cnn_feat to add a sequence dimension for GRU.
+        cnn_feat_seq = cnn_feat.unsqueeze(1)     # (batch_size, 1, hidden_dim)
+        external_account_ids_enc = self.account_enc(external_account_ids_enc.to(self.dtype).permute(0, 2, 1))
+        combined_input = torch.cat([cnn_feat_seq, external_account_ids_enc], dim=2)  # (batch_size, 1, hidden_dim + atten_dim)
+
+        # Initialize or adjust persistent hidden state if needed.
+        if self.hidden_state is None or self.hidden_state.size(1) != batch_size:
+            self.hidden_state = torch.zeros(1, batch_size, self.hparams.pred_state_dim, device=x.device)
+        # Use persistent hidden state in GRU forward pass.
+        _, h = self.gru(combined_input, self.hidden_state)
+        new_state = self.state_dropout(h)
+        self.hidden_state = new_state.detach()
+        # Squeeze GRU state: shape becomes (batch_size, pred_state_dim)
+        gru_feature = new_state.squeeze(0)
+        
+        # Pass the GRU feature through the classifier.
+        logits = self.classifier(gru_feature)
         return logits
     
     def training_step(self, batch, batch_idx):
         x = batch['padded_features']
         y = batch['label']
-        logits = self(x)
+        external_account_ids_enc = batch['external_account_ids_enc']
+        logits = self(x, external_account_ids_enc)
         y = y.float()
         pos_weight = torch.tensor([8], device=logits.device)
         loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
@@ -140,7 +126,8 @@ class Classifier(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x = batch['padded_features']
         y = batch['label']
-        logits = self(x)
+        external_account_ids_enc = batch['external_account_ids_enc']
+        logits = self(x, external_account_ids_enc)
         y = y.float()
         pos_weight = torch.tensor([8], device=logits.device)
         val_loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)

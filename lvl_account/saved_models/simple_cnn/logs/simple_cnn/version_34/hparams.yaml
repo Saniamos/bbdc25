@@ -1,6 +1,6 @@
 dropout: 0.2
 feature_dim: 106
-freeze_bert: false
+freeze_pretrained_model: false
 hidden_dim: 128
 learning_rate: 0.0001
 max_lr: 0.0005

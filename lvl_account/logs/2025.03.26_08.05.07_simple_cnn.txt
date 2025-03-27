@@ -1,0 +1,85 @@
+2025-03-26 08:05:07,652 - INFO - Logging to file: logs/2025.03.26_08.05.07_simple_cnn.txt
+2025-03-26 08:05:07,652 - INFO - Configuration: data_version=ver05, model_class=simple_cnn
+2025-03-26 08:05:07,652 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
+2025-03-26 08:05:07,652 - INFO - freeze_pretrained_model=True, batch_size=442, epochs=50
+2025-03-26 08:05:07,652 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
+2025-03-26 08:05:07,652 - INFO - seed=42, num_workers=0, patience=3
+2025-03-26 08:05:07,652 - INFO - Highest Inputer=True
+2025-03-26 08:05:07,653 - INFO - Set random seed to 42
+2025-03-26 08:05:07,653 - INFO - Preparing datasets for training...
+2025-03-26 08:05:07,654 - INFO - Loading training data...
+2025-03-26 08:05:10,857 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-26 08:05:11,057 - INFO - Normalizing 103 numeric columns
+2025-03-26 08:05:13,815 - INFO - Total of 45816 unique accounts
+2025-03-26 08:05:14,220 - INFO - Loaded dataset with 11059 accounts and 1674104 transactions
+2025-03-26 08:05:14,220 - INFO - Feature columns: 105 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'NumExternalAccountsNone', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89']
+2025-03-26 08:05:14,220 - INFO - Fraud accounts: 1411 (12.76%)
+2025-03-26 08:05:14,801 - INFO - Precomputing tensors for faster data loading...
+2025-03-26 08:05:46,656 - INFO - Precomputed 11059 tensors
+2025-03-26 08:05:46,795 - INFO - Loading validation data...
+2025-03-26 08:05:49,899 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-26 08:05:50,052 - INFO - Normalizing 103 numeric columns
+2025-03-26 08:05:52,821 - INFO - Total of 45816 unique accounts
+2025-03-26 08:05:53,215 - INFO - Loaded dataset with 11059 accounts and 1704503 transactions
+2025-03-26 08:05:53,215 - INFO - Feature columns: 105 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'NumExternalAccountsNone', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89']
+2025-03-26 08:05:53,215 - INFO - Fraud accounts: 1472 (13.31%)
+2025-03-26 08:05:53,787 - INFO - Precomputing tensors for faster data loading...
+2025-03-26 08:06:25,836 - INFO - Precomputed 11059 tensors
+2025-03-26 08:06:25,995 - INFO - Data loaders prepared. Feature dimension: 105
+2025-03-26 08:06:25,995 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-26 08:06:25,996 - INFO - Successfully imported model class: simple_cnn
+2025-03-26 08:06:25,996 - INFO - Initializing Classifier
+2025-03-26 08:06:26,046 - INFO - Compiling model with torch.compile()...
+2025-03-26 08:06:26,643 - INFO - Model compiled successfully
+2025-03-26 08:06:26,645 - INFO - TensorBoard logs will be saved to saved_models/simple_cnn/logs/simple_cnn/version_46
+2025-03-26 08:06:26,824 - INFO - Using GPU for training
+2025-03-26 08:06:26,899 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-26 08:06:26,900 - INFO - Starting training...
+2025-03-26 08:19:27,730 - INFO - Training completed. Final model saved to saved_models/simple_cnn/logs/simple_cnn/version_46/simple_cnn-final.ckpt
+2025-03-26 08:19:28,130 - INFO - ---------------------------------------------------
+2025-03-26 08:19:28,130 - INFO - 
+Evaluating model on validation set...
+2025-03-26 08:19:28,130 - INFO - === Pass 0 ===================
+2025-03-26 08:19:39,509 - INFO - 
+Validation Set Classification Report:
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.97      0.93      0.95      9587
+       Fraud       0.64      0.83      0.72      1472
+
+    accuracy                           0.91     11059
+   macro avg       0.80      0.88      0.84     11059
+weighted avg       0.93      0.91      0.92     11059
+
+2025-03-26 08:19:39,516 - INFO - 
+Validation Set Classification Report (top 1472):
+              precision    recall  f1-score   support
+
+   Non-Fraud       0.90      0.90      0.90      9587
+       Fraud       0.34      0.34      0.34      1472
+
+    accuracy                           0.83     11059
+   macro avg       0.62      0.62      0.62     11059
+weighted avg       0.83      0.83      0.83     11059
+
+2025-03-26 08:19:39,533 - INFO - Predicted fraudster count: 1916 / 1472
+2025-03-26 08:19:39,533 - INFO - Test predictions saved to logs/2025.03.26_08.05.07_simple_cnn_val.csv
+2025-03-26 08:19:40,206 - INFO - ---------------------------------------------------
+2025-03-26 08:19:40,208 - INFO - Generating train predictions...
+2025-03-26 08:19:40,208 - INFO - === Pass 0 ===================
+2025-03-26 08:19:50,229 - INFO - Train predictions saved to logs/2025.03.26_08.05.07_simple_cnn_train.csv
+2025-03-26 08:19:50,532 - INFO - ---------------------------------------------------
+2025-03-26 08:19:50,533 - INFO - Generating test predictions...
+2025-03-26 08:19:50,533 - INFO - Loading test data...
+2025-03-26 08:19:54,063 - INFO - String columns: ['Action', 'AccountID', 'External', 'External_Type']
+2025-03-26 08:19:54,291 - INFO - Normalizing 103 numeric columns
+2025-03-26 08:19:57,545 - INFO - Total of 45813 unique accounts
+2025-03-26 08:19:58,089 - INFO - Loaded dataset with 11057 accounts and 1646844 transactions
+2025-03-26 08:19:58,089 - INFO - Feature columns: 105 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'NumExternalAccountsNone', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'Hour', 'Action', 'Amount', 'OldBalance', 'NewBalance', 'isUnauthorizedOverdraft', 'External_Type', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89']
+2025-03-26 08:19:58,090 - INFO - Fraud accounts: 0 (0.00%)
+2025-03-26 08:19:58,710 - INFO - Precomputing tensors for faster data loading...
+2025-03-26 08:20:36,952 - INFO - Precomputed 11057 tensors
+2025-03-26 08:20:37,265 - INFO - === Pass 0 ===================
+2025-03-26 08:20:44,714 - INFO - Predicted fraudster count: 1627 / 1267
+2025-03-26 08:20:44,718 - INFO - Test predictions saved to logs/2025.03.26_08.05.07_simple_cnn_test.csv
+2025-03-26 08:20:45,020 - INFO - Process complete!

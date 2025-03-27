@@ -55,9 +55,13 @@ class AccountTransactionDataset(Dataset):
             # max_seq_len = max_seq_len * 2
 
         # Identify string columns for encoding
-        str_cols = features_df.select_dtypes(include=[object]).columns
+        # str_cols = features_df.select_dtypes(include=[object]).columns
+        str_cols = list(set(features_df.columns) - set(features_df._get_numeric_data().columns))
         log_fn(f'String columns: {list(str_cols)}')
-        
+
+        # sort dataframe for faster grouping later on
+        features_df = features_df.reset_index(drop=False).sort_values(['AccountID', 'Hour', 'index']).drop('index', axis=1).reset_index(drop=True)
+
         # Normalize numeric features if requested
         if normalize:
             numeric_cols = features_df.select_dtypes(include=['number']).columns
@@ -93,7 +97,9 @@ class AccountTransactionDataset(Dataset):
         self.feature_cols = self._get_feature_columns(features_df, feature_cols)
         
         # Group transactions by account
-        self.account_groups = features_df.groupby("AccountID")
+        # faster groupby with categorical columns
+        # features_df['AccountID'] = features_df['AccountID'].astype('category')
+        self.account_groups = features_df.groupby("AccountID", observed=True)
         
         # Determine max sequence length if not provided
         self.max_seq_len = self._get_max_seq_len(max_seq_len, log_fn)

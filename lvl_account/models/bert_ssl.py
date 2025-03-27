@@ -151,7 +151,7 @@ class Classifier(pl.LightningModule):
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
-        freeze_bert=False,
+        freeze_pretrained_model=False,
         classifier_hidden_dim=128,
         num_attention_heads=4,  # Parameter for multi-head attention
         use_multi_pooling=True, # Parameter to enable multiple pooling strategies
@@ -172,7 +172,7 @@ class Classifier(pl.LightningModule):
             print("Pre-trained weights loaded successfully")
         
         # Freeze BERT model if specified
-        if freeze_bert:
+        if freeze_pretrained_model:
             for param in self.bert_model.parameters():
                 param.requires_grad = False
             print("BERT model frozen")
@@ -377,7 +377,7 @@ class Classifier(pl.LightningModule):
     
     def configure_optimizers(self):
         # Only optimize classifier parameters if BERT is frozen
-        if self.hparams.freeze_bert:
+        if self.hparams.freeze_pretrained_model:
             params = self.classifier.parameters()
         else:
             params = self.parameters()
