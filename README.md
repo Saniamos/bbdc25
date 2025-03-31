@@ -104,6 +104,8 @@ Given the plot plots_analyze/non_rescuable_errors_heatmap.pdf it appears we lack
 -> tested a bunch and all the variations on including neighboring accounts did not improve results.
 New hunch: in all error cases the fraudulent behaviour seems to specifically be that the accounts once receive a sum that they to the penny cash out later. i would have expected the model to pick up on that eventually, but i might have had to abstract to much. will try to add one or two features based on this
 
+mmh, seems i missunderstood the single training missclassification / did not model that correctly in the feature extraction. But tbh even if i could still beat the SpiderBobs i'm happy they are likely taking first. They have been the runner up for some time now and it would not feel right :D So i'm not going to spend more time or cheese the last wrong classifications. I'll clean everything up tomorrow and call it a day for now. It was a great challenge. Thanks to the organizers and the other participants!
+
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
 - https://github.com/IBM/AMLSim
