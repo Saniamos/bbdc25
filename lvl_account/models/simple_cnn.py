@@ -134,17 +134,29 @@ class Classifier(pl.LightningModule):
         return logits
     
     def training_step(self, batch, batch_idx):
-        # Updated for dictionary return from __getitem__
         x = batch['padded_features']
         y = batch['label']
         logits = self(x)
         y = y.float()  # Ensure labels are float for BCE loss
-        
+
         # Calculate weighted BCE loss - giving higher weight to minority class (fraud)
-        # Since fraud is 12% of the dataset, we use pos_weight = 88/12 ≈ 7.33
         pos_weight = torch.tensor([7.33], device=logits.device)
         loss = F.binary_cross_entropy_with_logits(logits.view(-1), y.view(-1), pos_weight=pos_weight)
+        
+        # Compute probabilities and predictions
+        probs = torch.sigmoid(logits.view(-1))
+        preds = (probs > 0.5).float()
+        y_true = y.view(-1)
+        
+        # Calculate true positives and false negatives for fraud (class 1)
+        fraud_fp = torch.logical_and(y_true == 0, preds == 1).sum().item()
+        fraud_fn = torch.logical_and(y_true == 1, preds == 0).sum().item()
+        
+        # Log loss and metrics
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
+        self.log("train_fraud_fp", fraud_fp, sync_dist=True)
+        self.log("train_fraud_fn", fraud_fn, sync_dist=True)
+        
         return loss
 
     def validation_step(self, batch, batch_idx):

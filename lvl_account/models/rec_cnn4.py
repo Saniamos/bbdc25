@@ -18,7 +18,7 @@ class Classifier(pl.LightningModule):
     def __init__(
         self,
         feature_dim,
-        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/version_48/simple_cnn-epoch=09-val_fraud_f1=0.9905.ckpt",
+        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/version_51/simple_cnn-epoch=14-val_fraud_f1=0.9976.ckpt",
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
@@ -136,9 +136,19 @@ class Classifier(pl.LightningModule):
             probs_detached = torch.sigmoid(logits.view(-1)).detach()
             self.update_account_predictions(account_ids, probs_detached)
           
-        # Log metrics including the new regularization loss
+        # Compute probabilities and predictions
+        probs = torch.sigmoid(logits.view(-1))
+        preds = (probs > 0.5).float()
+        y_true = y.view(-1)
+        
+        # Calculate true positives and false negatives for fraud (class 1)
+        fraud_tp = torch.logical_and(y_true == 1, preds == 1).sum().item()
+        fraud_fn = torch.logical_and(y_true == 1, preds == 0).sum().item()
+        
+        # Log loss and metrics
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
-        # self.log("fraud_reg_loss", fraud_reg_loss, prog_bar=True, on_epoch=True, sync_dist=True)
+        self.log("train_fraud_tp", fraud_tp, sync_dist=True)
+        self.log("train_fraud_fn", fraud_fn, sync_dist=True)
         
         return loss
 

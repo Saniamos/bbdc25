@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 import logging
 import datetime
 import numpy as np
@@ -188,7 +188,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
         fast_dev_run=dry_run,
         check_val_every_n_epoch=val_every_epoch,
         benchmark=True,  # Optimize CUDA operations
-        gradient_clip_val=1.0,
+        # gradient_clip_val=1.0,
     )
     
     device_info = "GPU" if torch.cuda.is_available() else "CPU"
@@ -269,6 +269,11 @@ def evaluate_on_validation(logger, trainer, model, common_args, val_dataset):
     predictions_df['AccountID'] = predictions_df['AccountID'].str.split('yh').str[0]       
     predictions_output = os.path.join(LOG_DIR, f"{LOG_BASENAME}_val.csv")
     predictions_df.to_csv(predictions_output, index=False)
+    # Calculate and log confusion matrix details
+    cm = confusion_matrix(val_labels, val_preds)
+    tn, fp, fn, tp = cm.ravel()
+    logger.info(f"Confusion Matrix: TP: {tp}, FP: {fp}, TN: {tn}, FN: {fn}")
+
     logger.info(f"Predicted fraudster count: {predictions_df['Fraudster'].sum()} / {N_FRAUDSTERS['val']}")
     logger.info(f"Test predictions saved to {predictions_output}")
 

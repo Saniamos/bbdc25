@@ -547,4 +547,5 @@ if __name__ == '__main__':
     # example usage:
     # python3 analyze_errors.py lvl_account/logs/2025.03.24_15.56.46_attn_cnn_val.csv --n_plots_square 8
     # python3 analyze_errors.py non_rescuable_errors.csv --n_plots_square 8
+    # python3 analyze_errors.py lvl_account/logs/2025.03.31_11.46.13_simple_cnn_train.csv task/train_set/y_train.ver00.parquet  --n_plots_square 3 --full --transaction_file task/train_set/x_train.ver08.parquet
     analyze_errors()
