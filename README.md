@@ -1,5 +1,22 @@
 # bbdc25
 
+The BBDC2025 has multiple Tracks. This is my solution and analysis for the professional track.
+https://bbdc.csl.uni-bremen.de/de/2025-2/professional-track/
+
+The task is to detect fraudster accounts that are laundering money from a set of transactions.
+
+The steps to reproduce my results are as follows:
+1. Download the dataset from the BBDC website and extract it the task_orig folder. So that you have task_orig/train_set/x_train.csv
+2. Install the requirements from requirements.txt: `pip install -r requirements.txt`
+3. Run `bash preprocess_all.sh` (make sure version is set to ver12 in the script)
+4. `cd lvl_account/`
+5. Run `python3 evaluate.py --model_class simple_cnn --batch_size=256 --num_train_epochs=30 --val_every_epoch=5`
+
+The best submission was made that way. The log output should be the same as file: `logs/2023-10-23_16-11-30.log`
+
+The core idea of the submisson is the following: predict the fraudster label based on the aggregated transactions of that account. Calculate features that also include that accounts interactions with other accounts, e.g. by using the SnapML features or tracking the exact same amount of money being moved. The feature extraction is done in lvl_transaction/model/features/ver12.py. Afterwards different can be trained. Most notably the simple_cnn already works well if the features are good. In some cases the rec_cnn4 can mititgage some smaller issues. It keeps track of the current fraud predictions and inserts them into the feature set. Allowing for accounts being scrutinized differently if one of their neighbours is a fraudster. In practice the latter seldom improved the results. I think there is a single case in the validation data where the fraudster was sent money, but the month had ended before they could launder it.
+
+Below I documented my thought process throughout the challenge.
 
 ## Notes:
 - the data is generated 
