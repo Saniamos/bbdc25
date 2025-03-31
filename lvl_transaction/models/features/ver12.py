@@ -292,7 +292,7 @@ class Features:
         # and at least one in action occured before (that is not already accounted for)
         result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
                                             (out_action_idx) &
-                                            (result_df['cum_in_rev'] > result_df['cum_out_rev'])).astype('int8')
+                                            (result_df['cum_in_rev'] >= result_df['cum_out_rev'])).astype('int8')
 
         # (Optional) Clean up the helper columns
         result_df.drop(columns=['cum_out_rev', 'cum_in_rev'], inplace=True)
