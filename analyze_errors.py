@@ -41,9 +41,11 @@ def plot_neighbor_graphs(error_accounts, predicted_map, merged_df, two_accounts_
     # Build graphs without drawing yet.
     for acc in error_accounts['AccountID']:
         G = nx.Graph()
+        # For central node, assume external_type is 'customer' by default.
         G.add_node(acc)
         G.nodes[acc]['true'] = true_map.get(acc, 0)
         G.nodes[acc]['pred'] = predicted_map.get(acc, 0)
+        G.nodes[acc]['external_type'] = 'customer'
         
         # Select neighbor transactions; assumes two_accounts_df has columns: AccountID, External, External_Type, Hour, Action, Amount
         neighbors = two_accounts_df[two_accounts_df['AccountID'] == acc]
@@ -52,16 +54,16 @@ def plot_neighbor_graphs(error_accounts, predicted_map, merged_df, two_accounts_
             G.add_node(nb)
             G.nodes[nb]['true'] = true_map.get(nb, 0)
             G.nodes[nb]['pred'] = predicted_map.get(nb, 0)
+            # Store external type from transaction (default to 'customer' if missing)
+            G.nodes[nb]['external_type'] = row.get('External_Type', 'customer')
             edge_label = f"{row['Hour']}:{row['Action'][:1]}\n {row['Amount']}"
             G.add_edge(acc, nb, label=edge_label)
         graphs.append(G)
     
-    # Count each node's total occurrence across all graphs
-    global_node_count = {}
-    for G in graphs:
-        for n in G.nodes():
-            global_node_count[n] = global_node_count.get(n, 0) + 1
-
+    # Compute global node count across all graphs.
+    from collections import Counter
+    global_node_count = Counter(n for G in graphs for n in G.nodes())
+    
     # Create subplots and draw each graph
     fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
     axs = axs.flatten()
@@ -76,18 +78,22 @@ def plot_neighbor_graphs(error_accounts, predicted_map, merged_df, two_accounts_
             x, y = pos[n]
             true_val = G.nodes[n].get('true', 0)
             pred_val = G.nodes[n].get('pred', 0)
-            fill_color = 'red' if true_val == 1 else 'green'
-            border_color = 'red' if pred_val == 1 else 'green'
+            ext_type = G.nodes[n].get('external_type', 'customer')
+            # Use det_color to set colors (red if fraudster, green if customer, blue if merchant, yellow if bank)
+            fill_color = det_color(true_val, ext_type)
+            border_color = det_color(pred_val, ext_type)
             axs[idx].scatter(x, y, s=600, facecolors=fill_color, edgecolors=border_color, linewidths=2, zorder=2)
             
-            # Draw the node label and highlight if it appears in multiple graphs
+            # Draw node label and highlight if this node appears more than once across graphs
             if global_node_count.get(n, 0) > 1:
                 axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
                               zorder=3, fontsize=10, fontweight="bold", color="blue")
             else:
                 axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
                               zorder=3, fontsize=8)
-            # Now annotate the border with the prediction value (offset downward)
+            # Annotate border with predicted value (offset downward)
+            axs[idx].text(x, y - 0.1, f"P: {pred_val}", horizontalalignment="center", verticalalignment="center",
+                          fontsize=7, color=border_color, zorder=4)
             
         axs[idx].set_title(f"Acc: {list(G.nodes())[0]} | Pred: {predicted_map.get(list(G.nodes())[0], 'N/A')}", fontsize=9)
         axs[idx].axis('off')
@@ -109,6 +115,7 @@ def plot_reverse_neighbor_graphs(error_accounts, predicted_map, merged_df, trans
         G.add_node(acc)
         G.nodes[acc]['true'] = true_map.get(acc, 0)
         G.nodes[acc]['pred'] = predicted_map.get(acc, 0)
+        G.nodes[acc]['external_type'] = 'customer'
         
         # Find transactions where this account is the external partner.
         reverse_neighbors = trans_df[trans_df['External'] == acc]
@@ -117,16 +124,15 @@ def plot_reverse_neighbor_graphs(error_accounts, predicted_map, merged_df, trans
             G.add_node(nb)
             G.nodes[nb]['true'] = true_map.get(nb, 0)
             G.nodes[nb]['pred'] = predicted_map.get(nb, 0)
+            G.nodes[nb]['external_type'] = row.get('External_Type', 'customer')
             edge_label = f"{row['Hour']}:{row['Action'][:1]}\n {row['Amount']}"
             G.add_edge(acc, nb, label=edge_label)
         graphs.append(G)
     
     # Compute global node count across all graphs.
-    global_node_count = {}
-    for G in graphs:
-        for n in G.nodes():
-            global_node_count[n] = global_node_count.get(n, 0) + 1
-
+    from collections import Counter
+    global_node_count = Counter(n for G in graphs for n in G.nodes())
+    
     fig, axs = plt.subplots(n_plots_square, n_plots_square, figsize=(n_plots_square * 3, n_plots_square * 3))
     axs = axs.flatten()
     
@@ -139,8 +145,9 @@ def plot_reverse_neighbor_graphs(error_accounts, predicted_map, merged_df, trans
             x, y = pos[n]
             true_val = G.nodes[n].get('true', 0)
             pred_val = G.nodes[n].get('pred', 0)
-            fill_color = 'red' if true_val == 1 else 'green'
-            border_color = 'red' if pred_val == 1 else 'green'
+            ext_type = G.nodes[n].get('external_type', 'customer')
+            fill_color = det_color(true_val, ext_type)
+            border_color = det_color(pred_val, ext_type)
             axs[idx].scatter(x, y, s=600, facecolors=fill_color, edgecolors=border_color, linewidths=2, zorder=2)
             if global_node_count.get(n, 0) > 1:
                 axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
@@ -148,6 +155,8 @@ def plot_reverse_neighbor_graphs(error_accounts, predicted_map, merged_df, trans
             else:
                 axs[idx].text(x, y, str(n), horizontalalignment="center", verticalalignment="center",
                               zorder=3, fontsize=8)
+            axs[idx].text(x, y - 0.1, f"P: {pred_val}", horizontalalignment="center", verticalalignment="center",
+                          fontsize=7, color=border_color, zorder=4)
         axs[idx].set_title(f"Acc: {list(G.nodes())[0]} | Pred: {predicted_map.get(list(G.nodes())[0], 'N/A')}", fontsize=9)
         axs[idx].axis('off')
     
@@ -516,7 +525,10 @@ def analyze_errors(pred_csv, true_parquet, transaction_file, n_plots_square, ful
         click.echo("Reverse neighbor graphs saved to reverse_neighbor_graph_subplots_nonfraud.pdf")
 
 
+        click.echo(f"All missclassification AccountIDs: {error_accounts['AccountID'].to_list()}")
+        click.echo(f"And their true label: {error_accounts['Fraudster_true'].to_list()}")
         if full:
+
             click.echo("Performing in-depth transaction plots: transaction plots")
             col_plot(trans_df, error_accounts, predicted_map, n_plots_square, ['Amount'], "Amount Heatmaps for random wrong predictions", "transaction_amount_heatmaps.pdf")
             click.echo("Transaction heatmaps saved to transaction_heatmaps.pdf")

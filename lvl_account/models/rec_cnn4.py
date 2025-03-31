@@ -18,7 +18,7 @@ class Classifier(pl.LightningModule):
     def __init__(
         self,
         feature_dim,
-        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/rec_cnn_base/simple_cnn-epoch=14-val_fraud_f1=0.9264.ckpt",
+        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/version_48/simple_cnn-epoch=09-val_fraud_f1=0.9905.ckpt",
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,
@@ -130,13 +130,6 @@ class Classifier(pl.LightningModule):
             logits.view(-1), y.view(-1), 
             pos_weight=pos_weight
         )
-        
-        # New regularization term: enforce fraud rate to be 12.76% per batch
-        # probs = torch.sigmoid(logits.view(-1))
-        # desired_rate = 0.1276
-        # fraud_reg_loss = (probs.mean() - desired_rate) ** 2
-        
-        # loss = bce_loss + 0.3 * fraud_reg_loss
         
         # Update account predictions for next batch/epoch
         with torch.no_grad():

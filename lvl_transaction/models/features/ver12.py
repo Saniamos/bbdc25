@@ -54,7 +54,7 @@ class Features:
         self.external_type_encoder = LabelEncoder()
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
         self.graph_feature_preprocessor = GraphFeaturePreprocessor()
-        self.graph_feature_preprocessor.set_params(params)
+        # self.graph_feature_preprocessor.set_params(params)
 
 
     # @profile
@@ -151,10 +151,40 @@ class Features:
         group = X.groupby('AccountID', observed=True)
         # Use built-in diff(); fill NaN with the first element of each group using transform('first')
         result_df['HourDiff'] = group['Hour'].diff().fillna(group['Hour'].transform('first'))
+        result_df['DayDiff'] = group['Day'].diff().fillna(group['Day'].transform('first'))
         result_df['AmountDiff'] = group['Amount'].diff().fillna(group['Amount'].transform('first'))
         result_df['CleanAmountCum'] = group['CleanAmount'].transform('cumsum')
         result_df['TransactionNumber'] = group.cumcount()
 
+
+        # mark where diff is double the second highest diff
+        result_df['AccountID'] = X['AccountID']
+        def outlier_flag(series):
+            # If there's fewer than 2 observations, return all 0s.
+            if len(series) < 2:
+                return np.zeros(len(series), dtype='int8')
+            # Identify the maximum value.
+            max_val = series.max()
+            # Mask for rows equal to the maximum.
+            mask_max = series == max_val
+            # If all values are equal, no outlier.
+            if mask_max.sum() == len(series):
+                return np.zeros(len(series), dtype='int8')
+            # Find the second highest value from those not maximum.
+            second_max = series[~mask_max].max()
+            # Flag rows equal to the max if the max is more than double the second highest.
+            flag = (series == max_val) & (max_val > 2 * second_max)
+            return flag.astype('int8')
+
+        # Then replace the original outlier lines with:
+        result_df['HourDiffOutlier'] = (
+            result_df.groupby('AccountID', observed=True)['HourDiff']
+                    .transform(outlier_flag)
+        )
+        result_df['DayDiffOutlier'] = (
+            result_df.groupby('AccountID', observed=True)['DayDiff']
+                    .transform(outlier_flag)
+        )
         idx = X['External'].notna()
         group = X[idx].groupby('External', observed=True)
         result_df['ExternalAmountCumSum'] = 0.0  # Use 0.0 to initialize as float
@@ -172,12 +202,12 @@ class Features:
             result_df[f'NumExternalAccounts{external_type}'] = ext_grouped.transform('sum').values
         
         self._create_action_counts(X, result_df, ['AccountID'])
+        self._create_action_counts(X, result_df, ['AccountID', 'Day'])
         self._create_action_counts(X, result_df, ['AccountID', 'Hour'])
                 
         # Copy needed columns from X to result_df
-        for col in X.columns:
-            if col not in result_df:
-                result_df[col] = X[col]
+        missing_cols = X.columns.difference(result_df.columns)
+        result_df = pd.concat([result_df, X[missing_cols]], axis=1).copy()
         
         # fit graph feature preprocessor
         idx = ~X['External'].isna() # only fit where money changed accounts
@@ -208,14 +238,6 @@ class Features:
         assert result_df.drop(['External', 'External_Type'], axis=1).isna().sum().sum() == 0, f"Missing values in result_df: {result_df.isna().sum()}"
 
         # New check: flag if the same Amount reoccurs with one transaction having External_Type == 'REV_Customer' or customer -> ie its a Transfer
-        # and another with Action == 'CASH_OUT'
-        # grouped_flags = result_df.groupby("Amount").agg(
-        #     # rev_flag=('External_Type', lambda x: x.eq("REV_Customer").any() or x.eq("customer").any()),
-        #     rev_flag=('Action', lambda x: x.eq("TRANSFER").any()),
-        #     cash_flag=('Action', lambda x: x.eq("CASH_OUT").any() or x.eq("DEBIT").any())
-        # )
-        # grouped_flags['RevCashOutFlag'] = (grouped_flags.rev_flag & grouped_flags.cash_flag).astype('int8')
-        # result_df['RevCashOutFlag'] = result_df['Amount'].map(grouped_flags['RevCashOutFlag'])
         # alternative way of thinking about this: check if an account has the same exact same amount in two transactions
         # and one being a receiving and another a sending transaction
         # same as above since we want to return a single value for each transaction we need to select a random column for counting

@@ -83,3 +83,7 @@ weighted avg       1.00      1.00      1.00     11059
 2025-03-27 09:48:34,238 - INFO - Predicted fraudster count: 1266 / 1267
 2025-03-27 09:48:34,242 - INFO - Test predictions saved to logs/2025.03.27_09.32.22_attn_cnn_test.csv
 2025-03-27 09:48:34,648 - INFO - Process complete!
+
+
+All missclassification AccountIDs: ['C5248336225', 'C0004400426', 'C4096197361', 'C9819765824', 'C0823956866', 'C9532467789', 'C5165450221', 'C2298506769', 'C3064609351', 'C0003575540', 'C4415930874', 'C8072116179', 'C6150653306']
+And their true label: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]

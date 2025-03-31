@@ -1,0 +1,85 @@
+2025-03-27 11:10:17,081 - INFO - Logging to file: logs/2025.03.27_11.10.17_attn_cnn.txt
+2025-03-27 11:10:17,081 - INFO - Configuration: data_version=ver12, model_class=attn_cnn
+2025-03-27 11:10:17,081 - INFO - pretrained_model_path=None, output_dir=saved_models/attn_cnn
+2025-03-27 11:10:17,081 - INFO - freeze_pretrained_model=True, batch_size=442, epochs=50
+2025-03-27 11:10:17,081 - INFO - val_every_epoch=3, learning_rate=0.0001, weight_decay=0.01
+2025-03-27 11:10:17,081 - INFO - seed=42, num_workers=0, patience=3
+2025-03-27 11:10:17,081 - INFO - Highest Inputer=False
+2025-03-27 11:10:17,084 - INFO - Set random seed to 42
+2025-03-27 11:10:17,084 - INFO - Preparing datasets for training...
+2025-03-27 11:10:17,084 - INFO - Loading training data...
+2025-03-27 11:10:21,429 - INFO - String columns: ['External_Type', 'AccountID', 'Action', 'External']
+2025-03-27 11:10:26,845 - INFO - Normalizing 196 numeric columns
+2025-03-27 11:10:33,769 - INFO - Total of 45816 unique accounts
+2025-03-27 11:10:35,031 - INFO - Loaded dataset with 11059 accounts and 1774722 transactions
+2025-03-27 11:10:35,031 - INFO - Feature columns: 198 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MissingTransaction', 'MissingTransactionPct', 'AmountNonAbs', 'CleanAmount', 'HourDiff', 'DayDiff', 'AmountDiff', 'CleanAmountCum', 'TransactionNumber', 'HourDiffOutlier', 'DayDiffOutlier', 'ExternalAmountCumSum', 'HasMissingTransaction', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'NumExternalAccountsnan', 'NumActions', 'AmountCumsum', 'AmountStd', 'OldBalanceStd', 'NewBalanceStd', 'NumCashIn', 'NumCashInSum', 'CashInAmountSum', 'CashInAmountStd', 'NumCashOut', 'NumCashOutSum', 'CashOutAmountSum', 'CashOutAmountStd', 'NumDebit', 'NumDebitSum', 'DebitAmountSum', 'DebitAmountStd', 'NumPayment', 'NumPaymentSum', 'PaymentAmountSum', 'PaymentAmountStd', 'NumTransfer', 'NumTransferSum', 'TransferAmountSum', 'TransferAmountStd', 'NumActionsPerDay', 'AmountPerDayCumsum', 'AmountPerDayStd', 'OldBalancePerDayStd', 'NewBalancePerDayStd', 'NumCashInPerDay', 'NumCashInPerDaySum', 'CashInPerDayAmountSum', 'CashInPerDayAmountStd', 'NumCashOutPerDay', 'NumCashOutPerDaySum', 'CashOutPerDayAmountSum', 'CashOutPerDayAmountStd', 'NumDebitPerDay', 'NumDebitPerDaySum', 'DebitPerDayAmountSum', 'DebitPerDayAmountStd', 'NumPaymentPerDay', 'NumPaymentPerDaySum', 'PaymentPerDayAmountSum', 'PaymentPerDayAmountStd', 'NumTransferPerDay', 'NumTransferPerDaySum', 'TransferPerDayAmountSum', 'TransferPerDayAmountStd', 'NumActionsPerHour', 'AmountPerHourCumsum', 'AmountPerHourStd', 'OldBalancePerHourStd', 'NewBalancePerHourStd', 'NumCashInPerHour', 'NumCashInPerHourSum', 'CashInPerHourAmountSum', 'CashInPerHourAmountStd', 'NumCashOutPerHour', 'NumCashOutPerHourSum', 'CashOutPerHourAmountSum', 'CashOutPerHourAmountStd', 'NumDebitPerHour', 'NumDebitPerHourSum', 'DebitPerHourAmountSum', 'DebitPerHourAmountStd', 'NumPaymentPerHour', 'NumPaymentPerHourSum', 'PaymentPerHourAmountSum', 'PaymentPerHourAmountStd', 'NumTransferPerHour', 'NumTransferPerHourSum', 'TransferPerHourAmountSum', 'TransferPerHourAmountStd', 'Action', 'Amount', 'External_Type', 'Hour', 'NewBalance', 'OldBalance', 'OrigAmount', 'isUnauthorizedOverdraft', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89', 'AmountReoccurs', 'RevTunnelCashFlag', 'RevTunnelCashFlagIn', 'RevTunnelCashFlagOut']
+2025-03-27 11:10:35,031 - INFO - Fraud accounts: 1411 (12.76%)
+2025-03-27 11:10:36,317 - INFO - Precomputing tensors for faster data loading...
+2025-03-27 11:11:31,242 - INFO - Precomputed 11059 tensors
+2025-03-27 11:11:31,491 - INFO - Loading validation data...
+2025-03-27 11:11:35,247 - INFO - String columns: ['External_Type', 'AccountID', 'Action', 'External']
+2025-03-27 11:11:40,769 - INFO - Normalizing 196 numeric columns
+2025-03-27 11:11:47,930 - INFO - Total of 45816 unique accounts
+2025-03-27 11:11:49,283 - INFO - Loaded dataset with 11059 accounts and 1807354 transactions
+2025-03-27 11:11:49,283 - INFO - Feature columns: 198 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MissingTransaction', 'MissingTransactionPct', 'AmountNonAbs', 'CleanAmount', 'HourDiff', 'DayDiff', 'AmountDiff', 'CleanAmountCum', 'TransactionNumber', 'HourDiffOutlier', 'DayDiffOutlier', 'ExternalAmountCumSum', 'HasMissingTransaction', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'NumExternalAccountsnan', 'NumActions', 'AmountCumsum', 'AmountStd', 'OldBalanceStd', 'NewBalanceStd', 'NumCashIn', 'NumCashInSum', 'CashInAmountSum', 'CashInAmountStd', 'NumCashOut', 'NumCashOutSum', 'CashOutAmountSum', 'CashOutAmountStd', 'NumDebit', 'NumDebitSum', 'DebitAmountSum', 'DebitAmountStd', 'NumPayment', 'NumPaymentSum', 'PaymentAmountSum', 'PaymentAmountStd', 'NumTransfer', 'NumTransferSum', 'TransferAmountSum', 'TransferAmountStd', 'NumActionsPerDay', 'AmountPerDayCumsum', 'AmountPerDayStd', 'OldBalancePerDayStd', 'NewBalancePerDayStd', 'NumCashInPerDay', 'NumCashInPerDaySum', 'CashInPerDayAmountSum', 'CashInPerDayAmountStd', 'NumCashOutPerDay', 'NumCashOutPerDaySum', 'CashOutPerDayAmountSum', 'CashOutPerDayAmountStd', 'NumDebitPerDay', 'NumDebitPerDaySum', 'DebitPerDayAmountSum', 'DebitPerDayAmountStd', 'NumPaymentPerDay', 'NumPaymentPerDaySum', 'PaymentPerDayAmountSum', 'PaymentPerDayAmountStd', 'NumTransferPerDay', 'NumTransferPerDaySum', 'TransferPerDayAmountSum', 'TransferPerDayAmountStd', 'NumActionsPerHour', 'AmountPerHourCumsum', 'AmountPerHourStd', 'OldBalancePerHourStd', 'NewBalancePerHourStd', 'NumCashInPerHour', 'NumCashInPerHourSum', 'CashInPerHourAmountSum', 'CashInPerHourAmountStd', 'NumCashOutPerHour', 'NumCashOutPerHourSum', 'CashOutPerHourAmountSum', 'CashOutPerHourAmountStd', 'NumDebitPerHour', 'NumDebitPerHourSum', 'DebitPerHourAmountSum', 'DebitPerHourAmountStd', 'NumPaymentPerHour', 'NumPaymentPerHourSum', 'PaymentPerHourAmountSum', 'PaymentPerHourAmountStd', 'NumTransferPerHour', 'NumTransferPerHourSum', 'TransferPerHourAmountSum', 'TransferPerHourAmountStd', 'Action', 'Amount', 'External_Type', 'Hour', 'NewBalance', 'OldBalance', 'OrigAmount', 'isUnauthorizedOverdraft', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89', 'AmountReoccurs', 'RevTunnelCashFlag', 'RevTunnelCashFlagIn', 'RevTunnelCashFlagOut']
+2025-03-27 11:11:49,283 - INFO - Fraud accounts: 1472 (13.31%)
+2025-03-27 11:11:50,515 - INFO - Precomputing tensors for faster data loading...
+2025-03-27 11:12:45,875 - INFO - Precomputed 11059 tensors
+2025-03-27 11:12:46,152 - INFO - Data loaders prepared. Feature dimension: 198
+2025-03-27 11:12:46,154 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-27 11:12:46,155 - INFO - Successfully imported model class: attn_cnn
+2025-03-27 11:12:46,155 - INFO - Initializing Classifier
+2025-03-27 11:12:46,218 - INFO - Compiling model with torch.compile()...
+2025-03-27 11:12:46,878 - INFO - Model compiled successfully
+2025-03-27 11:12:46,881 - INFO - TensorBoard logs will be saved to saved_models/attn_cnn/logs/attn_cnn/version_35
+2025-03-27 11:12:47,069 - INFO - Using GPU for training
+2025-03-27 11:12:47,148 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-27 11:12:47,148 - INFO - Starting training...
+2025-03-27 11:20:09,539 - INFO - Training completed. Final model saved to saved_models/attn_cnn/logs/attn_cnn/version_35/attn_cnn-final.ckpt
+2025-03-27 11:20:09,870 - INFO - ---------------------------------------------------
+2025-03-27 11:20:09,871 - INFO - 
+Evaluating model on validation set...
+2025-03-27 11:20:09,871 - INFO - === Pass 0 ===================
+2025-03-27 11:20:23,470 - INFO - 
+Validation Set Classification Report:
+              precision    recall  f1-score   support
+
+   Non-Fraud       1.00      1.00      1.00      9587
+       Fraud       1.00      0.99      0.99      1472
+
+    accuracy                           1.00     11059
+   macro avg       1.00      1.00      1.00     11059
+weighted avg       1.00      1.00      1.00     11059
+
+2025-03-27 11:20:23,475 - INFO - 
+Validation Set Classification Report (top 1472):
+              precision    recall  f1-score   support
+
+   Non-Fraud       1.00      1.00      1.00      9587
+       Fraud       0.99      0.99      0.99      1472
+
+    accuracy                           1.00     11059
+   macro avg       0.99      0.99      0.99     11059
+weighted avg       1.00      1.00      1.00     11059
+
+2025-03-27 11:20:23,487 - INFO - Predicted fraudster count: 1471 / 1472
+2025-03-27 11:20:23,487 - INFO - Test predictions saved to logs/2025.03.27_11.10.17_attn_cnn_val.csv
+2025-03-27 11:20:24,308 - INFO - ---------------------------------------------------
+2025-03-27 11:20:24,312 - INFO - Generating train predictions...
+2025-03-27 11:20:24,312 - INFO - === Pass 0 ===================
+2025-03-27 11:20:32,939 - INFO - Train predictions saved to logs/2025.03.27_11.10.17_attn_cnn_train.csv
+2025-03-27 11:20:33,309 - INFO - ---------------------------------------------------
+2025-03-27 11:20:33,309 - INFO - Generating test predictions...
+2025-03-27 11:20:33,309 - INFO - Loading test data...
+2025-03-27 11:20:37,725 - INFO - String columns: ['External_Type', 'AccountID', 'Action', 'External']
+2025-03-27 11:20:43,632 - INFO - Normalizing 196 numeric columns
+2025-03-27 11:20:51,983 - INFO - Total of 45813 unique accounts
+2025-03-27 11:20:53,342 - INFO - Loaded dataset with 11057 accounts and 1744390 transactions
+2025-03-27 11:20:53,342 - INFO - Feature columns: 198 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MissingTransaction', 'MissingTransactionPct', 'AmountNonAbs', 'CleanAmount', 'HourDiff', 'DayDiff', 'AmountDiff', 'CleanAmountCum', 'TransactionNumber', 'HourDiffOutlier', 'DayDiffOutlier', 'ExternalAmountCumSum', 'HasMissingTransaction', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'NumExternalAccountsnan', 'NumActions', 'AmountCumsum', 'AmountStd', 'OldBalanceStd', 'NewBalanceStd', 'NumCashIn', 'NumCashInSum', 'CashInAmountSum', 'CashInAmountStd', 'NumCashOut', 'NumCashOutSum', 'CashOutAmountSum', 'CashOutAmountStd', 'NumDebit', 'NumDebitSum', 'DebitAmountSum', 'DebitAmountStd', 'NumPayment', 'NumPaymentSum', 'PaymentAmountSum', 'PaymentAmountStd', 'NumTransfer', 'NumTransferSum', 'TransferAmountSum', 'TransferAmountStd', 'NumActionsPerDay', 'AmountPerDayCumsum', 'AmountPerDayStd', 'OldBalancePerDayStd', 'NewBalancePerDayStd', 'NumCashInPerDay', 'NumCashInPerDaySum', 'CashInPerDayAmountSum', 'CashInPerDayAmountStd', 'NumCashOutPerDay', 'NumCashOutPerDaySum', 'CashOutPerDayAmountSum', 'CashOutPerDayAmountStd', 'NumDebitPerDay', 'NumDebitPerDaySum', 'DebitPerDayAmountSum', 'DebitPerDayAmountStd', 'NumPaymentPerDay', 'NumPaymentPerDaySum', 'PaymentPerDayAmountSum', 'PaymentPerDayAmountStd', 'NumTransferPerDay', 'NumTransferPerDaySum', 'TransferPerDayAmountSum', 'TransferPerDayAmountStd', 'NumActionsPerHour', 'AmountPerHourCumsum', 'AmountPerHourStd', 'OldBalancePerHourStd', 'NewBalancePerHourStd', 'NumCashInPerHour', 'NumCashInPerHourSum', 'CashInPerHourAmountSum', 'CashInPerHourAmountStd', 'NumCashOutPerHour', 'NumCashOutPerHourSum', 'CashOutPerHourAmountSum', 'CashOutPerHourAmountStd', 'NumDebitPerHour', 'NumDebitPerHourSum', 'DebitPerHourAmountSum', 'DebitPerHourAmountStd', 'NumPaymentPerHour', 'NumPaymentPerHourSum', 'PaymentPerHourAmountSum', 'PaymentPerHourAmountStd', 'NumTransferPerHour', 'NumTransferPerHourSum', 'TransferPerHourAmountSum', 'TransferPerHourAmountStd', 'Action', 'Amount', 'External_Type', 'Hour', 'NewBalance', 'OldBalance', 'OrigAmount', 'isUnauthorizedOverdraft', 'GFP_0', 'GFP_1', 'GFP_2', 'GFP_3', 'GFP_4', 'GFP_5', 'GFP_6', 'GFP_7', 'GFP_8', 'GFP_9', 'GFP_10', 'GFP_11', 'GFP_12', 'GFP_13', 'GFP_14', 'GFP_15', 'GFP_16', 'GFP_17', 'GFP_18', 'GFP_19', 'GFP_20', 'GFP_21', 'GFP_22', 'GFP_23', 'GFP_24', 'GFP_25', 'GFP_26', 'GFP_27', 'GFP_28', 'GFP_29', 'GFP_30', 'GFP_31', 'GFP_32', 'GFP_33', 'GFP_34', 'GFP_35', 'GFP_36', 'GFP_37', 'GFP_38', 'GFP_39', 'GFP_40', 'GFP_41', 'GFP_42', 'GFP_43', 'GFP_44', 'GFP_45', 'GFP_46', 'GFP_47', 'GFP_48', 'GFP_49', 'GFP_50', 'GFP_51', 'GFP_52', 'GFP_53', 'GFP_54', 'GFP_55', 'GFP_56', 'GFP_57', 'GFP_58', 'GFP_59', 'GFP_60', 'GFP_61', 'GFP_62', 'GFP_63', 'GFP_64', 'GFP_65', 'GFP_66', 'GFP_67', 'GFP_68', 'GFP_69', 'GFP_70', 'GFP_71', 'GFP_72', 'GFP_73', 'GFP_74', 'GFP_75', 'GFP_76', 'GFP_77', 'GFP_78', 'GFP_79', 'GFP_80', 'GFP_81', 'GFP_82', 'GFP_83', 'GFP_84', 'GFP_85', 'GFP_86', 'GFP_87', 'GFP_88', 'GFP_89', 'AmountReoccurs', 'RevTunnelCashFlag', 'RevTunnelCashFlagIn', 'RevTunnelCashFlagOut']
+2025-03-27 11:20:53,343 - INFO - Fraud accounts: 0 (0.00%)
+2025-03-27 11:20:54,323 - INFO - Precomputing tensors for faster data loading...
+2025-03-27 11:21:49,241 - INFO - Precomputed 11057 tensors
+2025-03-27 11:21:49,730 - INFO - === Pass 0 ===================
+2025-03-27 11:21:57,985 - INFO - Predicted fraudster count: 1266 / 1267
+2025-03-27 11:21:57,989 - INFO - Test predictions saved to logs/2025.03.27_11.10.17_attn_cnn_test.csv
+2025-03-27 11:21:58,415 - INFO - Process complete!

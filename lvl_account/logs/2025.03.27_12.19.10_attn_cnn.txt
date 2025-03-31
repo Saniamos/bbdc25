@@ -1,0 +1,25 @@
+2025-03-27 12:19:10,303 - INFO - Logging to file: logs/2025.03.27_12.19.10_attn_cnn.txt
+2025-03-27 12:19:10,303 - INFO - Configuration: data_version=ver12, model_class=attn_cnn
+2025-03-27 12:19:10,303 - INFO - combine_trainval=True, precompute=True, comp=True
+2025-03-27 12:19:10,303 - INFO - pretrained_model_path=None, output_dir=saved_models/attn_cnn
+2025-03-27 12:19:10,303 - INFO - freeze_pretrained_model=True, batch_size=442, epochs=50
+2025-03-27 12:19:10,303 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
+2025-03-27 12:19:10,303 - INFO - seed=42, num_workers=0, patience=3
+2025-03-27 12:19:10,303 - INFO - Highest Inputer=False
+2025-03-27 12:19:10,303 - INFO - ---------------------------------------------------
+2025-03-27 12:19:10,304 - INFO - Set random seed to 42
+2025-03-27 12:19:10,304 - INFO - Preparing datasets for training...
+2025-03-27 12:21:50,619 - INFO - Dataset split: 17694 training samples, 4424 validation samples
+2025-03-27 12:21:50,619 - INFO - Stratified by fraudster class to maintain class distribution in both sets
+2025-03-27 12:21:50,619 - INFO - Feature dimension: 198
+2025-03-27 12:21:50,620 - INFO - Data loaders prepared. Feature dimension: 198
+2025-03-27 12:21:50,620 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-27 12:21:50,630 - INFO - Successfully imported model class: attn_cnn
+2025-03-27 12:21:50,630 - INFO - Initializing Classifier
+2025-03-27 12:21:50,691 - INFO - Compiling model with torch.compile()...
+2025-03-27 12:21:51,315 - INFO - Model compiled successfully
+2025-03-27 12:21:51,317 - INFO - TensorBoard logs will be saved to saved_models/attn_cnn/logs/attn_cnn/version_36
+2025-03-27 12:21:51,493 - INFO - Using GPU for training
+2025-03-27 12:21:51,569 - INFO - GPU: NVIDIA GeForce RTX 4070
+2025-03-27 12:21:51,569 - INFO - Starting training...
+2025-03-27 12:29:06,534 - INFO - Training completed. Final model saved to saved_models/attn_cnn/logs/attn_cnn/version_36/attn_cnn-final.ckpt

@@ -13,7 +13,7 @@ import datetime
 import numpy as np
 import gc  # For garbage collection
 
-from ssl_models.dataloader import prepare_dataset, load_val, load_test, load_train, N_FRAUDSTERS
+from ssl_models.dataloader import load_train_val, prep_hpsearch_dataloaders, prepare_dataset, load_val, load_test, load_train, N_FRAUDSTERS
 
 # Global constants for logging
 LOG_DIR = "logs"
@@ -73,31 +73,38 @@ def import_model_class(python_file_base, logger):
 
 def train_model(logger, model_class, data_version, precompute, pretrained_model_path, freeze_pretrained_model, 
                continue_from_checkpoint, num_train_epochs, val_every_epoch, 
-               learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp, add_inputer):
+               learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp, add_inputer, combine_trainval):
     """Train the model and save checkpoints"""
     
     logger.info("Preparing datasets for training...")
     
-    
-    logger.info("Loading training data...")
-    train_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_train)
-    train_loader = DataLoader(
-        train_dataset, 
-        shuffle=True,
-        drop_last=True,
-        **common_args
-    )    
-    
-    logger.info("Loading validation data...")
-    val_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_val)
-    val_loader = DataLoader(
-        val_dataset, 
-        shuffle=False,
-        drop_last=True,
-        **common_args
-    )  
-    
-    feature_dim = train_loader.dataset.feature_dim
+    if combine_trainval:
+        train_loader, val_loader, feature_dim = prep_hpsearch_dataloaders(data_version, 42, batch_size=common_args['batch_size'], 
+                                                                          num_workers=common_args['num_workers'], mask=False, precompute=precompute,
+                                                                          highest_input=add_inputer,
+                                                                          log_fn=logger.info, load_fn=load_train_val)
+        val_dataset = None
+        train_dataset = train_loader.dataset
+    else:
+        logger.info("Loading training data...")
+        train_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_train)
+        feature_dim = train_dataset.feature_dim
+        train_loader = DataLoader(
+            train_dataset, 
+            shuffle=True,
+            drop_last=True,
+            **common_args
+        )    
+        
+        logger.info("Loading validation data...")
+        val_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_val)
+        val_loader = DataLoader(
+            val_dataset, 
+            shuffle=False,
+            drop_last=True,
+            **common_args
+        )  
+
     logger.info(f"Data loaders prepared. Feature dimension: {feature_dim}")
     
     # Check if pretrained model exists (only if path is provided)
@@ -208,7 +215,9 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    return model, trainer, final_model_path, train_dataset, val_dataset
+    generate_train_predictions(logger, trainer, model, common_args, train_dataset)
+
+    return model, trainer, final_model_path, val_dataset
 
 def probs_to_preds(probs, top_n):
     preds = np.zeros_like(probs)
@@ -402,15 +411,17 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 @click.option("--skip_test", is_flag=True, help="Skip test prediction")
 @click.option("--comp", is_flag=True, default=False, help="Compile model if available (PyTorch 2.0+)")
 @click.option("--add_inputer", is_flag=True, default=False, help="Add inputer to model")
+@click.option("--combine_trainval", is_flag=True, default=False, help="Combine train and validation data for training")
 def main(model_class, data_version, precompute, pretrained_model_path, freeze_pretrained_model, continue_from_checkpoint, batch_size, 
          num_train_epochs, val_every_epoch, learning_rate, weight_decay, seed, num_workers, patience, dry_run,
-         skeleton_file, skip_train, skip_validation, skip_test, comp, add_inputer):
+         skeleton_file, skip_train, skip_validation, skip_test, comp, add_inputer, combine_trainval):
     
     # Setup logging
     logger = setup_logger(model_class)
     
     # Log all configuration options
     logger.info(f"Configuration: data_version={data_version}, model_class={model_class}")
+    logger.info(f"combine_trainval={combine_trainval}, precompute={precompute}, comp={comp}")
     output_dir = os.path.join("saved_models", model_class)
     logger.info(f"pretrained_model_path={pretrained_model_path}, output_dir={output_dir}")
     logger.info(f"freeze_pretrained_model={freeze_pretrained_model}, batch_size={batch_size}, epochs={num_train_epochs}")
@@ -418,6 +429,7 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_pr
     logger.info(f"val_every_epoch={val_every_epoch}, learning_rate={learning_rate}, weight_decay={weight_decay}")
     logger.info(f"seed={seed}, num_workers={num_workers}, patience={patience}")
     logger.info(f"Highest Inputer={add_inputer}")
+    logger.info('---------------------------------------------------')
 
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
@@ -439,11 +451,11 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_pr
 
     if not skip_train:
         # Train the model
-        model, trainer, final_model_path, train_dataset, val_dataset = train_model(
+        model, trainer, final_model_path, val_dataset = train_model(
             logger, model_class, data_version, precompute, pretrained_model_path, freeze_pretrained_model, 
             continue_from_checkpoint, num_train_epochs, val_every_epoch, 
             learning_rate, weight_decay, patience, dry_run, output_dir, common_args, comp,
-            add_inputer
+            add_inputer, combine_trainval
         )
     else:
         # Load existing model
@@ -468,17 +480,14 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_pr
         model = ModelClass.load_from_checkpoint(final_model_path)
         logger.info(f"Loaded model from {final_model_path}")
         train_dataset.delete_cache()
-    
-    if not skip_validation:            
+        val_dataset = None
+
+    if not skip_validation:
+        if combine_trainval or val_dataset is None:          
+            val_dataset = prepare_dataset(data_version, mask=False, precompute=precompute, highest_input=add_inputer, log_fn=logger.info, fn=load_val)
         # Evaluate on validation set
         evaluate_on_validation(logger, trainer, model, common_args, val_dataset)
         val_dataset.delete_cache()
-
-    # Add train predictions output if training dataset is available.
-    if not skip_train:
-        generate_train_predictions(logger, trainer, model, common_args, train_dataset)
-    else:
-        logger.info("Skipping train predictions because train dataset is not available.")
     
     if not skip_test:
         # Generate test predictions
