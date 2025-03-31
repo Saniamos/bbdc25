@@ -135,21 +135,10 @@ class Classifier(pl.LightningModule):
         with torch.no_grad():
             probs_detached = torch.sigmoid(logits.view(-1)).detach()
             self.update_account_predictions(account_ids, probs_detached)
-          
-        # Compute probabilities and predictions
-        probs = torch.sigmoid(logits.view(-1))
-        preds = (probs > 0.5).float()
-        y_true = y.view(-1)
-        
-        # Calculate true positives and false negatives for fraud (class 1)
-        fraud_tp = torch.logical_and(y_true == 1, preds == 1).sum().item()
-        fraud_fn = torch.logical_and(y_true == 1, preds == 0).sum().item()
-        
+                  
         # Log loss and metrics
         self.log("train_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True)
-        self.log("train_fraud_tp", fraud_tp, sync_dist=True)
-        self.log("train_fraud_fn", fraud_fn, sync_dist=True)
-        
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -199,12 +188,16 @@ class Classifier(pl.LightningModule):
         # Log metrics
         self.log_dict({
             "val_loss": val_loss, 
-            "val_fraud_f1": fraud_f1
+            "val_fraud_f1": fraud_f1,
+            "val_fn": fraud_fn,
+            "val_fp": fraud_fp,
         }, prog_bar=True, sync_dist=True)
         
         return {
             "val_loss": val_loss,
             "val_fraud_f1": fraud_f1,
+            "val_fn": fraud_fn,
+            "val_fp": fraud_fp,
         }
     
     def configure_optimizers(self):

@@ -92,7 +92,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
         train_loader = DataLoader(
             train_dataset, 
             shuffle=True,
-            drop_last=True,
+            drop_last=False,
             **common_args
         )    
         
@@ -101,7 +101,7 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
         val_loader = DataLoader(
             val_dataset, 
             shuffle=False,
-            drop_last=True,
+            drop_last=False,
             **common_args
         )  
 

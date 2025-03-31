@@ -248,33 +248,55 @@ class Features:
         out_actions = ['CASH_OUT', 'DEBIT']
         in_actions = ['TRANSFER', 'CASH_IN']
 
+        # # Assuming result_df is already sorted by 'Hour'
+        # # Calculate cumulative count of out actions per group
+        # result_df['cum_out'] = result_df.groupby(['AccountID', 'Amount'], observed=True)['Action']\
+        #                                 .transform(lambda s: s.isin(out_actions).cumsum())
+
+        # # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
+        # # and no out action has occurred before (cum_out==0)
+        # result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
+        #                                     (result_df['Action'].isin(in_actions)) &
+        #                                     (result_df['cum_out'] == 0)).astype('int8')
+
+        # # Calculate reversed cumulative count of in actions per group
+        # result_df['cum_in_rev'] = result_df.groupby(['AccountID', 'Amount'], observed=True)['Action']\
+        #                                     .transform(lambda s: s[::-1].isin(in_actions).cumsum()[::-1])
+
+        # # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
+        # # and no in action occurs later (cum_in_rev==0)
+        # result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
+        #                                     (result_df['Action'].isin(out_actions)) &
+        #                                     (result_df['cum_in_rev'] == 0)).astype('int8')
+
+
         # Assuming result_df is already sorted by 'Hour'
         # Calculate cumulative count of out actions per group
         out_action_idx = result_df['Action'].isin(out_actions)
         in_action_idx = result_df['Action'].isin(in_actions)
 
-        result_df['cum_out_rev'] = 0
+        result_df['cum_out_rev'] = np.nan
         result_df.loc[out_action_idx, 'cum_out_rev'] = result_df.loc[out_action_idx].groupby(['AccountID', 'Amount'], observed=True).transform('cumcount')
+        result_df['cum_out_rev'] = result_df.groupby('AccountID')['cum_out_rev'].ffill().fillna(0)
 
         # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
-        # and no out action has occurred before (cum_out_rev==0)
         result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-                                            (in_action_idx) &
-                                            (result_df['cum_out_rev'] == 0)).astype('int8')
+                                            (in_action_idx)).astype('int8')
 
         # Calculate reversed cumulative count of in actions per group
-        result_df['cum_in_rev'] = 0
+        result_df['cum_in_rev'] = np.nan
         grouped = result_df.loc[in_action_idx].groupby(['AccountID', 'Amount'], observed=True)['Action']
         result_df.loc[in_action_idx, 'cum_in_rev'] = grouped.transform('count') - grouped.transform('cumcount') - 1
+        result_df['cum_in_rev'] = result_df.groupby('AccountID')['cum_out_rev'].ffill().fillna(0)
 
         # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
-        # and no in action occurs later (cum_in_rev==0)
+        # and at least one in action occured before (that is not already accounted for)
         result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
                                             (out_action_idx) &
-                                            (result_df['cum_in_rev'] == 0)).astype('int8')
+                                            (result_df['cum_in_rev'] > result_df['cum_out_rev'])).astype('int8')
 
         # (Optional) Clean up the helper columns
-        result_df.drop(columns=['cum_out_rev', 'cum_in_rev'], inplace=True)
+        # result_df.drop(columns=['cum_out_rev', 'cum_in_rev'], inplace=True)
 
         for col in ['Action', 'External_Type', 'AccountID', 'External']:
             if col in result_df.columns:
@@ -312,7 +334,7 @@ if __name__ == "__main__":
 
     x_val_df = pd.read_parquet(VAL_X_PATH)
     y_val_df = pd.read_parquet(VAL_Y_PATH)
-    val = pd.merge(x_val_df, y_val_df, on="AccountID")[:300_000]
+    val = pd.merge(x_val_df, y_val_df, on="AccountID")[:200_000]
     X_val = val.drop(columns=["Fraudster"])
     y_val = val["Fraudster"]
 
