@@ -2,59 +2,14 @@ import datetime
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from snapml import GraphFeaturePreprocessor
 
-# ver11 with check if account spents the same amount it received later
-
-# tw = 50 # slightly over 2 days, takes ~ 2min 
-tw = 24*7 # takes ~ 2min 
-params = {
-    "num_threads": 9,             # number of software threads to be used (important for performance)
-    "time_window": tw,            # time window used if no pattern was specified
-    
-    "vertex_stats": True,         # produce vertex statistics
-    "vertex_stats_cols": [3],     # produce vertex statistics using the selected input columns
-    
-    # features: 0:fan,1:deg,2:ratio,3:avg,4:sum,5:min,6:max,7:median,8:var,9:skew,10:kurtosis
-    # "vertex_stats_feats": [0, 1, 2, 3, 4, 8, 9, 10],  # fan,deg,ratio,avg,sum,var,skew,kurtosis
-    "vertex_stats_feats": list(range(11)),  # fan,deg,ratio,avg,sum,var,skew,kurtosis
-    
-    # fan in/out parameters
-    "fan": True,
-    "fan_tw": tw,
-    "fan_bins": list(range(1, 30)),
-    
-    # in/out degree parameters
-    "degree": True,
-    "degree_tw": tw,
-    "degree_bins": list(range(1, 30)),
-    
-    # scatter gather parameters
-    "scatter-gather": True,
-    "scatter-gather_tw": tw,
-    "scatter-gather_bins": list(range(1, 30)),
-    # "scatter-gather_bins": [1],
-    
-    # temporal cycle parameters
-    "temp-cycle": True,
-    "temp-cycle_tw": 50,
-    "temp-cycle_bins": list(range(1, 9)),
-    # "temp-cycle_bins": [1],
-    
-    # length-constrained simple cycle parameters
-    "lc-cycle": True,
-    "lc-cycle_tw": 50,
-    "lc-cycle_len": 10,
-    "lc-cycle_bins": list(range(1, 11)),
-}
+# ver12 without graph features (as running on mac atm and snapml does not work there)
 
 class Features:
     def __init__(self):
         self.action_encoder = LabelEncoder()
         self.external_type_encoder = LabelEncoder()
         self.action_types = ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
-        self.graph_feature_preprocessor = GraphFeaturePreprocessor()
-        # self.graph_feature_preprocessor.set_params(params)
 
 
     # @profile
@@ -211,17 +166,17 @@ class Features:
         
         # fit graph feature preprocessor
         # idx = ~X['External'].isna() # only fit where money changed accounts
-        idx = X['Action'] == 'TRANSFER' # only fit where money changed accounts between customers
-        gfp_X = np.array([X[idx].index.values,
-                 LabelEncoder().fit_transform(X[idx]['AccountID']),
-                 LabelEncoder().fit_transform(X[idx]['External']),
-                 X[idx]['Hour']]).T
-        enriched = self.graph_feature_preprocessor.fit_transform(gfp_X)[:, 4:]
-        res = np.zeros((X.shape[0], enriched.shape[1]), dtype=np.float32)
-        res[idx] = enriched
-        enriched_col_names = [f"GFP_{i}" for i in range(enriched.shape[1])]
-        enriched_df = pd.DataFrame(res, columns=enriched_col_names, index=X.index)
-        result_df = pd.concat([result_df, enriched_df], axis=1)
+        # idx = X['Action'] == 'TRANSFER' # only fit where money changed accounts between customers
+        # gfp_X = np.array([X[idx].index.values,
+        #          LabelEncoder().fit_transform(X[idx]['AccountID']),
+        #          LabelEncoder().fit_transform(X[idx]['External']),
+        #          X[idx]['Hour']]).T
+        # enriched = self.graph_feature_preprocessor.fit_transform(gfp_X)[:, 4:]
+        # res = np.zeros((X.shape[0], enriched.shape[1]), dtype=np.float32)
+        # res[idx] = enriched
+        # enriched_col_names = [f"GFP_{i}" for i in range(enriched.shape[1])]
+        # enriched_df = pd.DataFrame(res, columns=enriched_col_names, index=X.index)
+        # result_df = pd.concat([result_df, enriched_df], axis=1)
 
         # check if any Amount is occuring exactly the same as before
         # we need to include another column otherwise the groupby returns an empty dataframe, but since we are counting it does not matter which column we include
@@ -247,28 +202,6 @@ class Features:
         # Define the action list for out actions
         out_actions = ['CASH_OUT', 'DEBIT']
         in_actions = ['TRANSFER', 'CASH_IN']
-
-        # # Assuming result_df is already sorted by 'Hour'
-        # # Calculate cumulative count of out actions per group
-        # result_df['cum_out'] = result_df.groupby(['AccountID', 'Amount'], observed=True)['Action']\
-        #                                 .transform(lambda s: s.isin(out_actions).cumsum())
-
-        # # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
-        # # and no out action has occurred before (cum_out==0)
-        # result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-        #                                     (result_df['Action'].isin(in_actions)) &
-        #                                     (result_df['cum_out'] == 0)).astype('int8')
-
-        # # Calculate reversed cumulative count of in actions per group
-        # result_df['cum_in_rev'] = result_df.groupby(['AccountID', 'Amount'], observed=True)['Action']\
-        #                                     .transform(lambda s: s[::-1].isin(in_actions).cumsum()[::-1])
-
-        # # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
-        # # and no in action occurs later (cum_in_rev==0)
-        # result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-        #                                     (result_df['Action'].isin(out_actions)) &
-        #                                     (result_df['cum_in_rev'] == 0)).astype('int8')
-
 
         # Assuming result_df is already sorted by 'Hour'
         # Calculate cumulative count of out actions per group

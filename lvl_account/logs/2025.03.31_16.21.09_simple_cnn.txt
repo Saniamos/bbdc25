@@ -1,0 +1,36 @@
+2025-03-31 16:21:09,583 - INFO - Logging to file: logs/2025.03.31_16.21.09_simple_cnn.txt
+2025-03-31 16:21:09,583 - INFO - Configuration: data_version=ver12, model_class=simple_cnn
+2025-03-31 16:21:09,583 - INFO - combine_trainval=False, precompute=True, comp=False
+2025-03-31 16:21:09,583 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
+2025-03-31 16:21:09,583 - INFO - freeze_pretrained_model=False, batch_size=110, epochs=30
+2025-03-31 16:21:09,583 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
+2025-03-31 16:21:09,583 - INFO - seed=42, num_workers=0, patience=3
+2025-03-31 16:21:09,583 - INFO - Highest Inputer=False
+2025-03-31 16:21:09,583 - INFO - ---------------------------------------------------
+2025-03-31 16:21:09,586 - INFO - Set random seed to 42
+2025-03-31 16:21:09,586 - INFO - Preparing datasets for training...
+2025-03-31 16:21:09,586 - INFO - Loading training data...
+2025-03-31 16:21:11,211 - INFO - String columns: ['External', 'AccountID', 'External_Type', 'Action']
+2025-03-31 16:21:13,795 - INFO - Normalizing 108 numeric columns
+2025-03-31 16:21:17,305 - INFO - Total of 45816 unique accounts
+2025-03-31 16:21:18,319 - INFO - Loaded dataset with 11059 accounts and 1774722 transactions
+2025-03-31 16:21:18,319 - INFO - Feature columns: 110 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MissingTransaction', 'MissingTransactionPct', 'AmountNonAbs', 'CleanAmount', 'HourDiff', 'DayDiff', 'AmountDiff', 'CleanAmountCum', 'TransactionNumber', 'HourDiffOutlier', 'DayDiffOutlier', 'ExternalAmountCumSum', 'HasMissingTransaction', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'NumExternalAccountsnan', 'NumActions', 'AmountCumsum', 'AmountStd', 'OldBalanceStd', 'NewBalanceStd', 'NumCashIn', 'NumCashInSum', 'CashInAmountSum', 'CashInAmountStd', 'NumCashOut', 'NumCashOutSum', 'CashOutAmountSum', 'CashOutAmountStd', 'NumDebit', 'NumDebitSum', 'DebitAmountSum', 'DebitAmountStd', 'NumPayment', 'NumPaymentSum', 'PaymentAmountSum', 'PaymentAmountStd', 'NumTransfer', 'NumTransferSum', 'TransferAmountSum', 'TransferAmountStd', 'NumActionsPerDay', 'AmountPerDayCumsum', 'AmountPerDayStd', 'OldBalancePerDayStd', 'NewBalancePerDayStd', 'NumCashInPerDay', 'NumCashInPerDaySum', 'CashInPerDayAmountSum', 'CashInPerDayAmountStd', 'NumCashOutPerDay', 'NumCashOutPerDaySum', 'CashOutPerDayAmountSum', 'CashOutPerDayAmountStd', 'NumDebitPerDay', 'NumDebitPerDaySum', 'DebitPerDayAmountSum', 'DebitPerDayAmountStd', 'NumPaymentPerDay', 'NumPaymentPerDaySum', 'PaymentPerDayAmountSum', 'PaymentPerDayAmountStd', 'NumTransferPerDay', 'NumTransferPerDaySum', 'TransferPerDayAmountSum', 'TransferPerDayAmountStd', 'NumActionsPerHour', 'AmountPerHourCumsum', 'AmountPerHourStd', 'OldBalancePerHourStd', 'NewBalancePerHourStd', 'NumCashInPerHour', 'NumCashInPerHourSum', 'CashInPerHourAmountSum', 'CashInPerHourAmountStd', 'NumCashOutPerHour', 'NumCashOutPerHourSum', 'CashOutPerHourAmountSum', 'CashOutPerHourAmountStd', 'NumDebitPerHour', 'NumDebitPerHourSum', 'DebitPerHourAmountSum', 'DebitPerHourAmountStd', 'NumPaymentPerHour', 'NumPaymentPerHourSum', 'PaymentPerHourAmountSum', 'PaymentPerHourAmountStd', 'NumTransferPerHour', 'NumTransferPerHourSum', 'TransferPerHourAmountSum', 'TransferPerHourAmountStd', 'Action', 'Amount', 'External_Type', 'Hour', 'NewBalance', 'OldBalance', 'OrigAmount', 'isUnauthorizedOverdraft', 'AmountReoccurs', 'RevTunnelCashFlag', 'cum_out_rev', 'RevTunnelCashFlagIn', 'cum_in_rev', 'RevTunnelCashFlagOut']
+2025-03-31 16:21:18,319 - INFO - Fraud accounts: 1411 (12.76%)
+2025-03-31 16:21:18,910 - INFO - Precomputing tensors for faster data loading...
+2025-03-31 16:21:36,986 - INFO - Precomputed 11059 tensors
+2025-03-31 16:21:37,155 - INFO - Loading validation data...
+2025-03-31 16:21:38,605 - INFO - String columns: ['External', 'AccountID', 'External_Type', 'Action']
+2025-03-31 16:21:41,062 - INFO - Normalizing 108 numeric columns
+2025-03-31 16:21:44,740 - INFO - Total of 45816 unique accounts
+2025-03-31 16:21:45,807 - INFO - Loaded dataset with 11059 accounts and 1807354 transactions
+2025-03-31 16:21:45,807 - INFO - Feature columns: 110 -- ['ToD', 'Day', 'DoW', 'PercentageOfBalance', 'MissingTransaction', 'MissingTransactionPct', 'AmountNonAbs', 'CleanAmount', 'HourDiff', 'DayDiff', 'AmountDiff', 'CleanAmountCum', 'TransactionNumber', 'HourDiffOutlier', 'DayDiffOutlier', 'ExternalAmountCumSum', 'HasMissingTransaction', 'NumExternalAccountsbank', 'NumExternalAccountscustomer', 'NumExternalAccountsmerchant', 'NumExternalAccountsnan', 'NumActions', 'AmountCumsum', 'AmountStd', 'OldBalanceStd', 'NewBalanceStd', 'NumCashIn', 'NumCashInSum', 'CashInAmountSum', 'CashInAmountStd', 'NumCashOut', 'NumCashOutSum', 'CashOutAmountSum', 'CashOutAmountStd', 'NumDebit', 'NumDebitSum', 'DebitAmountSum', 'DebitAmountStd', 'NumPayment', 'NumPaymentSum', 'PaymentAmountSum', 'PaymentAmountStd', 'NumTransfer', 'NumTransferSum', 'TransferAmountSum', 'TransferAmountStd', 'NumActionsPerDay', 'AmountPerDayCumsum', 'AmountPerDayStd', 'OldBalancePerDayStd', 'NewBalancePerDayStd', 'NumCashInPerDay', 'NumCashInPerDaySum', 'CashInPerDayAmountSum', 'CashInPerDayAmountStd', 'NumCashOutPerDay', 'NumCashOutPerDaySum', 'CashOutPerDayAmountSum', 'CashOutPerDayAmountStd', 'NumDebitPerDay', 'NumDebitPerDaySum', 'DebitPerDayAmountSum', 'DebitPerDayAmountStd', 'NumPaymentPerDay', 'NumPaymentPerDaySum', 'PaymentPerDayAmountSum', 'PaymentPerDayAmountStd', 'NumTransferPerDay', 'NumTransferPerDaySum', 'TransferPerDayAmountSum', 'TransferPerDayAmountStd', 'NumActionsPerHour', 'AmountPerHourCumsum', 'AmountPerHourStd', 'OldBalancePerHourStd', 'NewBalancePerHourStd', 'NumCashInPerHour', 'NumCashInPerHourSum', 'CashInPerHourAmountSum', 'CashInPerHourAmountStd', 'NumCashOutPerHour', 'NumCashOutPerHourSum', 'CashOutPerHourAmountSum', 'CashOutPerHourAmountStd', 'NumDebitPerHour', 'NumDebitPerHourSum', 'DebitPerHourAmountSum', 'DebitPerHourAmountStd', 'NumPaymentPerHour', 'NumPaymentPerHourSum', 'PaymentPerHourAmountSum', 'PaymentPerHourAmountStd', 'NumTransferPerHour', 'NumTransferPerHourSum', 'TransferPerHourAmountSum', 'TransferPerHourAmountStd', 'Action', 'Amount', 'External_Type', 'Hour', 'NewBalance', 'OldBalance', 'OrigAmount', 'isUnauthorizedOverdraft', 'AmountReoccurs', 'RevTunnelCashFlag', 'cum_out_rev', 'RevTunnelCashFlagIn', 'cum_in_rev', 'RevTunnelCashFlagOut']
+2025-03-31 16:21:45,807 - INFO - Fraud accounts: 0 (0.00%)
+2025-03-31 16:21:46,403 - INFO - Precomputing tensors for faster data loading...
+2025-03-31 16:22:04,472 - INFO - Precomputed 11059 tensors
+2025-03-31 16:22:04,615 - INFO - Data loaders prepared. Feature dimension: 110
+2025-03-31 16:22:04,615 - INFO - No pre-trained model provided, model will be initialized from scratch
+2025-03-31 16:22:04,617 - INFO - Successfully imported model class: simple_cnn
+2025-03-31 16:22:04,617 - INFO - Initializing Classifier
+2025-03-31 16:22:04,718 - INFO - TensorBoard logs will be saved to saved_models/simple_cnn/logs/simple_cnn/version_55
+2025-03-31 16:22:04,810 - INFO - Using MPS for training
+2025-03-31 16:22:04,810 - INFO - Starting training...

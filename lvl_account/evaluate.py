@@ -177,23 +177,34 @@ def train_model(logger, model_class, data_version, precompute, pretrained_model_
 
     torch.autograd.set_detect_anomaly(True)
     
+    if torch.cuda.is_available():
+        accelerator = 'gpu'
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        accelerator = 'mps'
+    else:
+        accelerator = 'cpu'
+
+    precision_val = '16-mixed'
+    if accelerator == 'mps':
+        precision_val = 32
+
     # Initialize trainer
     trainer = pl.Trainer(
         max_epochs=num_train_epochs,
-        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        accelerator=accelerator,
         devices=1,
         callbacks=[checkpoint_callback, early_stop_callback],
         logger=tensorboard_logger,
-        precision='16-mixed',
+        precision=precision_val,
         fast_dev_run=dry_run,
         check_val_every_n_epoch=val_every_epoch,
         benchmark=True,  # Optimize CUDA operations
         # gradient_clip_val=1.0,
     )
     
-    device_info = "GPU" if torch.cuda.is_available() else "CPU"
+    device_info = accelerator.upper()
     logger.info(f"Using {device_info} for training")
-    if torch.cuda.is_available():
+    if accelerator == 'gpu':
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
 
     # Train the model
@@ -393,7 +404,7 @@ def generate_test_predictions(logger, trainer, model, data_version, precompute, 
 # Model parameters
 @click.option("--model_class", default="simple_cnn", type=str, 
               help="Model class to use (module.ClassName format)")
-@click.option("--freeze_pretrained_model", is_flag=True, default=True, help="Whether to freeze BERT weights")
+@click.option("--freeze_pretrained_model", is_flag=True, default=False, help="Whether to freeze pretrained weights")
 
 @click.option("--continue_from_checkpoint", default=None, type=str, help="Path to a checkpoint to continue training")
 
@@ -470,15 +481,24 @@ def main(model_class, data_version, precompute, pretrained_model_path, freeze_pr
             logger.error("Must provide --continue_from_checkpoint when using --skip_train")
             return
         
+        if torch.cuda.is_available():
+            accelerator = 'gpu'
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            accelerator = 'mps'
+        else:
+            accelerator = 'cpu'
+        precision_val = '16-mixed'
+        if accelerator == 'mps':
+            precision_val = 32
         
         # Import model class
         ModelClass = import_model_class(model_class, logger)
         
-        # Initialize trainer
+        # Initialize trainer with adjusted precision
         trainer = pl.Trainer(
-            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            accelerator=accelerator,
             devices=1,
-            precision='16-mixed',
+            precision=precision_val,
         )
         
         # Load the model
