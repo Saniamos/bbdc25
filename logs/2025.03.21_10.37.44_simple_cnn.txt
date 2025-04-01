@@ -1,9 +1,0 @@
-2025-03-21 10:37:44,855 - INFO - Logging to file: logs/2025.03.21_10.37.44_simple_cnn.txt
-2025-03-21 10:37:44,855 - INFO - Configuration: data_version=ver05, model_class=simple_cnn
-2025-03-21 10:37:44,855 - INFO - pretrained_model_path=None, output_dir=saved_models/simple_cnn
-2025-03-21 10:37:44,855 - INFO - freeze_pretrained_model=True, batch_size=128, epochs=1
-2025-03-21 10:37:44,856 - INFO - val_every_epoch=1, learning_rate=0.0001, weight_decay=0.01
-2025-03-21 10:37:44,856 - INFO - seed=42, num_workers=4, patience=3
-2025-03-21 10:37:44,857 - INFO - Set random seed to 42
-2025-03-21 10:37:44,858 - INFO - Preparing datasets...
-2025-03-21 10:37:49,685 - INFO - Loaded dataset with 11059 accounts and 1674104 transactions

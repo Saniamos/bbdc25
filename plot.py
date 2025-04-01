@@ -697,29 +697,28 @@ def main(transactions_path, fraud_path, val_name):
     
     # Generate plots that only require transactions data
     plot_amount_distribution(transactions_df, output_path=f"plot/{prefix}_amount_distribution.png")
-    # plot_hourly_average_amount(transactions_df, output_path=f"plot/{prefix}_hourly_average_amount.png")
-    # plot_unique_accounts(transactions_df, output_path=f"plot/{prefix}_unique_accounts.png")
-    # plot_overdrafts(transactions_df, output_path=f"plot/{prefix}_overdrafts.png")
-    # plot_transfer_hops(transactions_df, output_path=f"plot/{prefix}_transfer_hops.png")
-    # plot_transactions_per_account(transactions_df, output_path=f"plot/{prefix}_transactions_per_account.png")
+    plot_hourly_average_amount(transactions_df, output_path=f"plot/{prefix}_hourly_average_amount.png")
+    plot_unique_accounts(transactions_df, output_path=f"plot/{prefix}_unique_accounts.png")
+    plot_overdrafts(transactions_df, output_path=f"plot/{prefix}_overdrafts.png")
+    plot_transfer_hops(transactions_df, output_path=f"plot/{prefix}_transfer_hops.png")
+    plot_transactions_per_account(transactions_df, output_path=f"plot/{prefix}_transactions_per_account.png")
 
     # Check if fraud data is provided before generating fraud-based plots
     # Inside your main() function, after the other fraud-based plots
     if fraud_path:
         fraud_df = pd.read_parquet(fraud_path)
-        # plot_fraud_percentage_pie(fraud_df, output_path=f"plot/{prefix}_fraud_percentage_pie.png")
-        # plot_fraud_action_difference(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_action_difference.png")
-        # plot_fraud_percentage(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_percentage.png")
-        # plot_summed_money_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_summed_money_per_account.png")
-        # plot_transaction_traffic_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_transaction_traffic_per_account.png")
-        # plot_fraud_overdrafts(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_overdrafts.png")
-        # plot_unique_accounts_by_fraud(fraud_df, output_path=f"plot/{prefix}_unique_accounts_by_fraud.png")
-        # plot_transfer_counts_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_transfer_counts_per_account.png")
-        # plot_fraudsters_by_external_type(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraudsters_by_external_type.png")
-        # plot_cash_only_accounts(transactions_df, fraud_df, output_path=f"plot/{prefix}_cash_only_accounts.png")
-        # plot_accounts_by_transaction_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_tx_count.png")
-        # plot_accounts_by_external_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_external_count.png", max_ext=20, bin_size=1)
-        pass
+        plot_fraud_percentage_pie(fraud_df, output_path=f"plot/{prefix}_fraud_percentage_pie.png")
+        plot_fraud_action_difference(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_action_difference.png")
+        plot_fraud_percentage(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_percentage.png")
+        plot_summed_money_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_summed_money_per_account.png")
+        plot_transaction_traffic_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_transaction_traffic_per_account.png")
+        plot_fraud_overdrafts(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraud_overdrafts.png")
+        plot_unique_accounts_by_fraud(fraud_df, output_path=f"plot/{prefix}_unique_accounts_by_fraud.png")
+        plot_transfer_counts_per_account(transactions_df, fraud_df, output_path=f"plot/{prefix}_transfer_counts_per_account.png")
+        plot_fraudsters_by_external_type(transactions_df, fraud_df, output_path=f"plot/{prefix}_fraudsters_by_external_type.png")
+        plot_cash_only_accounts(transactions_df, fraud_df, output_path=f"plot/{prefix}_cash_only_accounts.png")
+        plot_accounts_by_transaction_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_tx_count.png")
+        plot_accounts_by_external_count(transactions_df, fraud_df, output_path=f"plot/{prefix}_accounts_by_external_count.png", max_ext=20, bin_size=1)
     else:
         print("No fraud_path provided: Skipping fraud-based plots.")
 
