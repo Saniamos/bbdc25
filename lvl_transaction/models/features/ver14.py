@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from snapml import GraphFeaturePreprocessor
 
-# ver11 with check if account spents the same amount it received later
+# ver12 but slightly different out flag, ie only flag out if at least one in action occured before
 
 # tw = 50 # slightly over 2 days, takes ~ 2min 
 tw = 24*7 # takes ~ 2min 
@@ -253,6 +253,15 @@ class Features:
         out_action_idx = result_df['Action'].isin(out_actions)
         in_action_idx = result_df['Action'].isin(in_actions)
 
+        result_df['cum_out_rev'] = np.nan
+        result_df.loc[out_action_idx, 'cum_out_rev'] = result_df.loc[out_action_idx].groupby(['AccountID'], observed=True)['RevTunnelCashFlag'].transform('cumsum')
+        result_df['cum_out_rev'] = result_df.groupby('AccountID')['cum_out_rev'].ffill().fillna(0)
+        
+        # Calculate reversed cumulative count of in actions per group
+        result_df['cum_in_rev'] = np.nan
+        result_df.loc[in_action_idx, 'cum_in_rev'] = result_df.loc[in_action_idx].groupby(['AccountID'], observed=True)['RevTunnelCashFlag'].transform('cumsum')
+        result_df['cum_in_rev'] = result_df.groupby('AccountID')['cum_in_rev'].ffill().fillna(0)
+
         # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
         result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
                                             (in_action_idx)).astype('int8')
@@ -260,7 +269,8 @@ class Features:
         # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
         # and at least one in action occured before (that is not already accounted for)
         result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-                                            (out_action_idx)).astype('int8')
+                                            (out_action_idx) &
+                                            (result_df['cum_in_rev'] >= result_df['cum_out_rev'])).astype('int8')
 
         for col in ['Action', 'External_Type', 'AccountID', 'External']:
             if col in result_df.columns:
