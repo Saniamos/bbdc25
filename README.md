@@ -3,6 +3,20 @@
 The BBDC2025 is a big data / machine learning challenge running every March 1st to 31st and has multiple Tracks. This is my solution (Team OldSchool) and analysis for the professional track: 
 https://bbdc.csl.uni-bremen.de/de/2025-2/professional-track/
 
+Table of Contents:
+- [Repository Structure](#repository-structure)
+- [Solution Reproduction and Core Idea](#solution-reproduction-and-core-idea)
+- [Transaction Level / Notes](#transaction-level--notes)
+- [Understandings](#understandings)
+- [Log](#log)
+- [Next Steps](#next-steps)
+- [Account Level Classification / Deep Learning](#account-level-classification--deep-learning)
+- [Error Analysis](#error-analysis)
+- [Simulations](#simulations)
+- [Features and Sophisticated Models](#features-and-sophisticated-models)
+- [My Submissions](#my-submissions)
+- [Final Thoughts](#final-thoughts)
+
 ## Repository Structure
 - `lvl_account/` contains the code for classification on account level (ie aggregated transactions per account predict if the account is a fraudster or not)
 - `lvl_transaction/` contains the code for classification on transaction level (ie predict if a single transaction is fraudulent or not, as the labels are given per account, this is less performant)
@@ -26,6 +40,7 @@ My best submission (`2025.03.31_12.04.44_rec_cnn4_test.csv`) was made that way. 
 The core idea is the following: predict the fraudster label based on the aggregated transactions of that account. Calculate features that also include that account's interactions with other accounts, e.g. by using the SnapML features or tracking the exact same amount of money being moved. The feature extraction is done in `lvl_transaction/model/features/ver12.py`. Afterwards, different models can be trained. Most notably, the simple_cnn already works well if the features are good (ie ver12 > ver05 > ver01). In some cases, the rec_cnn4 can mitigate some smaller issues. It keeps track of the current fraud predictions and inserts them into the feature set, allowing for accounts to be scrutinized differently if one of their neighbours is a fraudster. In practice, the latter seldom improved the results. I think there is a single case in the validation data where the fraudster was sent money, but the month had ended before they could launder it.
 
 Final Standing (we are 3rd, as we got overtaken by import Teamname in the last 20 minutes). Before that it was a tight race with Spider Bobs.
+
 ![final_standings.png](final_standings.png)
 
 My Teamname choice was on a whim, because I tend to prioritize data analysis and understanding over throwing the biggest model at the problem. I ended up actually doing both but the former was more successful.
@@ -65,7 +80,7 @@ My Teamname choice was on a whim, because I tend to prioritize data analysis and
     => Next: either consider a better selection/aggregation method or try autopytorch or the simulation.
 - RF with 1000 trees instead of 100 is better in transactional (+1 f1, +4pre and +1rec), but ironically not worse (-1) in account f1.
 
-### (Project) Log
+### Log
 - Read description and added some thoughts.
 - Plotted data.
 - Setup pipeline and implemented dummy, RF and BRF models.
