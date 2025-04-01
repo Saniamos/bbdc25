@@ -1,40 +1,42 @@
 # bbdc25
 
-The BBDC2025 has multiple Tracks. This is my solution (Team OldSchool) and analysis for the professional track.
+The BBDC2025 is a big data / machine learning challenge running every March 1st to 31st and has multiple Tracks. This is my solution (Team OldSchool) and analysis for the professional track.
 https://bbdc.csl.uni-bremen.de/de/2025-2/professional-track/
 
 The task is to detect fraudster accounts that are laundering money from a set of transactions.
 
 The steps to reproduce my results are as follows:
-1. Download the dataset from the BBDC website and extract it the task_orig folder. So that you have task_orig/train_set/x_train.csv
+1. Download the dataset from the BBDC website and extract it to the task_orig folder. So that you have task_orig/train_set/x_train.csv
 2. Install the requirements from requirements.txt: `pip install -r requirements.txt`
 3. Run `bash preprocess_all.sh` (make sure version is set to ver12 in the script)
 4. `cd lvl_account/`
-5. Run `python3 evaluate.py --precompute --comp --model_class rec_cnn4 --batch_size=442 --num_train_epochs=50 --val_every_epoch=1`
+5. Run `python3 evaluate.py --precompute --comp --model_class simple_cnn --batch_size=442 --num_train_epochs=50 --val_every_epoch=1` (you'll need 12gb of GPU memory for this)
+6. Set the trained model path in the rec_cnn4 
+7. Run `python3 evaluate.py --precompute --comp --model_class rec_cnn4 --batch_size=442 --num_train_epochs=50 --val_every_epoch=1`
 
-My best submission (`2025.03.31_12.04.44_rec_cnn4_test.csv`) was made that way. The log output should similar as this one: `2025.03.31_12.04.44_rec_cnn4.txt`
+My best submission (`2025.03.31_12.04.44_rec_cnn4_test.csv`) was made that way. The log output should be similar to this one: `2025.03.31_12.04.44_rec_cnn4.txt`. It is only marginally better (three or four samples, iirc) than the simple_cnn, so you could stop at step 5 and have a similarly good result.
 
-The core idea of the submisson is the following: predict the fraudster label based on the aggregated transactions of that account. Calculate features that also include that accounts interactions with other accounts, e.g. by using the SnapML features or tracking the exact same amount of money being moved. The feature extraction is done in lvl_transaction/model/features/ver12.py. Afterwards different can be trained. Most notably the simple_cnn already works well if the features are good. In some cases the rec_cnn4 can mititgage some smaller issues. It keeps track of the current fraud predictions and inserts them into the feature set. Allowing for accounts being scrutinized differently if one of their neighbours is a fraudster. In practice the latter seldom improved the results. I think there is a single case in the validation data where the fraudster was sent money, but the month had ended before they could launder it.
+The core idea of the submission is the following: predict the fraudster label based on the aggregated transactions of that account. Calculate features that also include that account's interactions with other accounts, e.g. by using the SnapML features or tracking the exact same amount of money being moved. The feature extraction is done in lvl_transaction/model/features/ver12.py. Afterwards, different models can be trained. Most notably, the simple_cnn already works well if the features are good. In some cases, the rec_cnn4 can mitigate some smaller issues. It keeps track of the current fraud predictions and inserts them into the feature set, allowing for accounts being scrutinized differently if one of their neighbours is a fraudster. In practice, the latter seldom improved the results. I think there is a single case in the validation data where the fraudster was sent money, but the month had ended before they could launder it.
 
 Final Standing (we are 3rd, as we got overtaken by import Teamname in the last 20 minutes):
 ![final_standings.png](final_standings.png)
 
-My Teamname choice was on a whim, because I tend to prioritze data analysis and understanding over throwing the biggest model at the problem. Ended up actually doing both but the former was more succesful.
+My Teamname choice was on a whim, because I tend to prioritize data analysis and understanding over throwing the biggest model at the problem. Ended up actually doing both but the former was more successful.
  
 Below I documented my thought process throughout the challenge.
 
 ## Notes:
 - the data is generated 
-    -> can we re-verse engineer the data generation process?
-        -> or: what are the tytpical features considered for modelling this?
-        -> additionally: there must be some variable, even if it is whitheld that informs if a transaction is fraudulent or not -> what would i use if i where to generate such a dataset?
+    -> can we reverse engineer the data generation process?
+        -> or: what are the typical features considered for modelling this?
+        -> additionally: there must be some variable, even if it is withheld that informs if a transaction is fraudulent or not -> what would I use if I were to generate such a dataset?
     -> is this based on real world distributions or did they make them up themselves? if the latter, on what basis? is there open research to consider?
 
 - 15% fraudsters -> any model that we can use thresholding with should have an according threshold
-    -> potentially the organisers used different percentages for train/val/test 
+    -> potentially the organizers used different percentages for train/val/test 
 
 - there are examples of this kind of task:
-    - https://www.kaggle.com/datasets/ealaxi/paysim1 -> this looks very similar from a datastand point -> i would assume the bbdc also used https://changefinancial.com/paysim/ to generate the data
+    - https://www.kaggle.com/datasets/ealaxi/paysim1 -> this looks very similar from a data standpoint -> I would assume the BBDC also used https://changefinancial.com/paysim/ to generate the data
        -> there also are example models, we should try those first
             -> https://www.kaggle.com/code/salmarashwan/building-a-fraud-detection-model-paysim-case-study this has really good results just with a rf, not sure if this applies to this dataset as well, but we'll see. double check cross_validation and features used
 
@@ -44,7 +46,7 @@ Below I documented my thought process throughout the challenge.
 
 - consider using autosklearn or autopytorch, since the data is tabular
 
-- the documentation suggests there are no payments from merchants to customers (ie refunds) -> q auick search in the transactions also suggest, but does not confirm this
+- the documentation suggests there are no payments from merchants to customers (ie refunds) -> a quick search in the transactions also suggests, but does not confirm this
 
 -> new aggregation method idea: use predict_proba of model select a subset of transactions (not sure if sorted by highest or similar, or just pad) and then use another model to predict if the account is fraudulent or not => not really better than the current method 
 
@@ -52,17 +54,17 @@ Added new ssl and fraud classification methods, core idea is this: incorporate n
 
 Realized, that fraudsters do seldom only use cash (2-7 out of 11k accounts) and that we might be able to aggregate the cash transactions in order to condense our data.
 
-Question: does the simulation consider the order of transactions relevant? -> likely not, as it is agent based with a certin prob to perform such actions -> we could aggregate the transactions. If we assume only topological fraud (ie circle, fan-in/out etc) we could even aggregate per account pair. If we assume single transactions as fradulent we would need to be careful in agregation though -> from what i gather the core idea in amlsim (and paysim) is to only flag certain actions during simulation that are creating one of the known topologies.
+Question: does the simulation consider the order of transactions relevant? -> likely not, as it is agent based with a certain prob to perform such actions -> we could aggregate the transactions. If we assume only topological fraud (ie circle, fan-in/out etc) we could even aggregate per account pair. If we assume single transactions as fraudulent we would need to be careful in aggregation though -> from what I gather the core idea in amlsim (and paysim) is to only flag certain actions during simulation that are creating one of the known topologies.
 
-placative, but might help in shifting perspective: we are given the vertices of a graph that is constructed by the properties of the nodes. We then want to get back to the properties, more specifically the fraudster property.
+Placative, but might help in shifting perspective: we are given the vertices of a graph that is constructed by the properties of the nodes. We then want to get back to the properties, more specifically the fraudster property.
 
-also: consider the other direction: which accounts are we sure of that are normal people?
+Also: consider the other direction: which accounts are we sure of that are normal people?
 - accounts only using cash_in or cash_out (see plot). 
 - anything else?
 
-currently working on account lvl classification. will add the exact number of fraudsters to the dataset/model (since we can count them in train, val and engineered it for test)
+Currently working on account lvl classification. Will add the exact number of fraudsters to the dataset/model (since we can count them in train, val and engineered it for test)
 
-Note on data version in comparision to the simple cnn:
+Note on data version in comparison to the simple cnn:
 ver: fraud f1 -- tensorboard log version
 ver05: 0.92 -- 10
 ver01: 0.79 -- 11
@@ -98,18 +100,18 @@ Transactions of C2934430280
 917177    203  CASH_OUT   66520.96  C2934430280     None   809276.52   742755.56                        0          None   11   11.105272
 1026553   214   CASH_IN  243380.04  C2934430280     None   742755.56   986135.59                        0          None   22   12.402379
 
-It appears some transactions are missing in the data. i.e. i cannot come up with another explanation of why the newBalance is the same after an action that does not have zero amounts. 
-This happens for non-fraud accounts as well -> i assume the organizers removed random transactions to make the task harder.
+It appears some transactions are missing in the data. i.e. I cannot come up with another explanation of why the newBalance is the same after an action that does not have zero amounts. 
+This happens for non-fraud accounts as well -> I assume the organizers removed random transactions to make the task harder.
 
-Given the plot plots_analyze/non_rescuable_errors_heatmap.pdf it appears we lack the information to detect around 60 fraud accounts. This could be because each model compensates slightly differntly when miss classifying non-fraudsters etc. -> figure out what unifies these 60 accounts and try to feature engineer that.
--> it appears all of these do not opperate in a network with other fraudster customers
-->  given teh reverse_neighbor_graph_subplots.pdf i finally could confirm that the main issue i have is that some fraud accounts are mainly fraud because they recive money from other fraud accounts. This is something we currently do not represent. I've tried with the rec_cnn but could not get it to work. Will re-consider this approach now. 
+Given the plot plots_analyze/non_rescuable_errors_heatmap.pdf it appears we lack the information to detect around 60 fraud accounts. This could be because each model compensates slightly differently when misclassifying non-fraudsters etc. -> figure out what unifies these 60 accounts and try to feature engineer that.
+-> it appears all of these do not operate in a network with other fraudster customers
+->  given the reverse_neighbor_graph_subplots.pdf I finally could confirm that the main issue I have is that some fraud accounts are mainly fraud because they receive money from other fraud accounts. This is something we currently do not represent. I've tried with the rec_cnn but could not get it to work. Will re-consider this approach now. 
 -> ah, this also explains the "missing" transactions. 
 
 -> tested a bunch and all the variations on including neighboring accounts did not improve results.
-New hunch: in all error cases the fraudulent behaviour seems to specifically be that the accounts once receive a sum that they to the penny cash out later. i would have expected the model to pick up on that eventually, but i might have had to abstract to much. will try to add one or two features based on this
+New hunch: in all error cases the fraudulent behaviour seems to specifically be that the accounts once receive a sum that they, to the penny, cash out later. I would have expected the model to pick up on that eventually, but I might have had to abstract too much. Will try to add one or two features based on this
 
-mmh, seems i missunderstood the single training missclassification / did not model that correctly in the feature extraction. But tbh even if i could still beat the SpiderBobs i'm happy they are likely taking first. They have been the runner up for some time now and it would not feel right :D So i'm not going to spend more time or cheese the last wrong classifications. I'll clean everything up tomorrow and call it a day for now. It was a great challenge. Thanks to the organizers and the other participants!
+mmh, seems I misunderstood the single training misclassification / did not model that correctly in the feature extraction. But tbh even if I could still beat the SpiderBobs, I'm happy they are likely taking first. They have been the runner up for some time now and it would not feel right :D So I'm not going to spend more time or fix the last wrong classifications. I'll clean everything up tomorrow and call it a day for now. It was a great challenge. Thanks to the organizers and the other participants!
 
 ## Simulations:
 - https://bth.diva-portal.org/smash/get/diva2:955852/FULLTEXT06.pdf
@@ -125,9 +127,9 @@ mmh, seems i missunderstood the single training missclassification / did not mod
 
 ## Understandings:
 - The fraudulent percentage differs between the datasets (train is mostly between 10-15% per action, val ranges from 3-15% per action, test is obviously unclear)
-- the aggregation per accountid is based on quantiles atm -> the model before should be tuned for fraud precision over recall as faulty transaction labeling is more costly than missing a fraudulent transaction, specifically as not all transactions of a fraudulent account are necissarily fraudulent
+- the aggregation per accountid is based on quantiles atm -> the model before should be tuned for fraud precision over recall as faulty transaction labeling is more costly than missing a fraudulent transaction, specifically as not all transactions of a fraudulent account are necessarily fraudulent
     -> tuning for precision can achieve 100% fraud transaction precision, but recall is low resulting in bad fraudster f1 -> tuning is not worth it atm
-    -> adjusted cv split for less agressive optimization and adjusted aggregation method -> results are on par without precision tuning -> might consider to revisit in final models, but not atm
+    -> adjusted cv split for less aggressive optimization and adjusted aggregation method -> results are on par without precision tuning -> might consider to revisit in final models, but not atm
 - Ver01 feature set is better (over raw) in rf and brf: roughly doubles fraud precision (transaction) and is ~8 points better in macro f1, 20 in fraud f1 (account)
 - Ver02 feature set is better (over v1)
     - brf: 
@@ -141,13 +143,13 @@ mmh, seems i missunderstood the single training missclassification / did not mod
 
 # Next Steps:
 - submit a version with no fraud to reverse engineer the fraudster percentage
-- consider featueres -> stacking, embedding?
+- consider features -> stacking, embedding?
 - consider cnn model for transactional data, unsure how to train on basically only one sample / how to split the data into multiple samples instead of a single big one -> approach would be nice as it could cross-reference / -calc transactions making the feature space less crucial
 - double check if kaggle data is useful or harmful -> train on train+kaggle and validate on val 
 
 
 ## Log:
-- read desrciption and added some thoughts
+- read description and added some thoughts
 - plot data
 - setup pipeline and implemented dummy, rf and brf
 - submitted two submissions with rf on train.csv and rf on train+val+kaggle
@@ -158,5 +160,5 @@ mmh, seems i missunderstood the single training missclassification / did not mod
 - added features v02
 - re-ran models with v02 features -> pretty good / on par results (see above)
 - investigated aggregation strategies: while interesting, the main source of error remains uncertainty in the transactional model
-- uploaded an unchecked submission with rf on train+val+kaggle -> results we're not good, as the model predicted 100% fraud for some reason -> but gave me the idea to reverse engineer the fraud/non-fraud ratio. Would need to submit a version with no fraud though. -> missed that i could have already calculated it here. in the test set we have a precision of 0.114 if all are labeled fraudster -> so we have 11.4% fraudsters in the test set, more precisely 1,267 out of the 11,057 accounts
+- uploaded an unchecked submission with rf on train+val+kaggle -> results were not good, as the model predicted 100% fraud for some reason -> but gave me the idea to reverse engineer the fraud/non-fraud ratio. Would need to submit a version with no fraud though. -> missed that I could have already calculated it here. in the test set we have a precision of 0.114 if all are labeled fraudster -> so we have 11.4% fraudsters in the test set, more precisely 1,267 out of the 11,057 accounts
 

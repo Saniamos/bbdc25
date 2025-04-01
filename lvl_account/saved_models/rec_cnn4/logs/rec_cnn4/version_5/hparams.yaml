@@ -1,0 +1,12 @@
+dropout: 0.2
+encoder_dim: 64
+feature_dim: 198
+freeze_pretrained_model: false
+hidden_dim: 256
+learning_rate: 0.0001
+max_lr: 0.0005
+min_lr: 1.0e-05
+num_accounts: 50000
+pretrained_model_path: /home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/version_58/simple_cnn-epoch=25-val_fraud_f1=0.9965.ckpt
+warmup_steps: 100
+weight_decay: 0.01

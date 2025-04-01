@@ -18,7 +18,7 @@ class Classifier(pl.LightningModule):
     def __init__(
         self,
         feature_dim,
-        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/version_51/simple_cnn-epoch=14-val_fraud_f1=0.9976.ckpt",
+        pretrained_model_path="/home/yale/Repositories/bbdc25/lvl_account/saved_models/simple_cnn/logs/simple_cnn/version_58/simple_cnn-epoch=25-val_fraud_f1=0.9965.ckpt",
         weight_decay=0.01,
         learning_rate=1e-4,
         dropout=0.2,

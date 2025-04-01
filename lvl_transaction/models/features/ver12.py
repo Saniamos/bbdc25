@@ -248,41 +248,33 @@ class Features:
         out_actions = ['CASH_OUT', 'DEBIT']
         in_actions = ['TRANSFER', 'CASH_IN']
 
-        # # Assuming result_df is already sorted by 'Hour'
-        # # Calculate cumulative count of out actions per group
-        # result_df['cum_out'] = result_df.groupby(['AccountID', 'Amount'], observed=True)['Action']\
-        #                                 .transform(lambda s: s.isin(out_actions).cumsum())
-
-        # # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
-        # # and no out action has occurred before (cum_out==0)
-        # result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-        #                                     (result_df['Action'].isin(in_actions)) &
-        #                                     (result_df['cum_out'] == 0)).astype('int8')
-
-        # # Calculate reversed cumulative count of in actions per group
-        # result_df['cum_in_rev'] = result_df.groupby(['AccountID', 'Amount'], observed=True)['Action']\
-        #                                     .transform(lambda s: s[::-1].isin(in_actions).cumsum()[::-1])
-
-        # # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
-        # # and no in action occurs later (cum_in_rev==0)
-        # result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-        #                                     (result_df['Action'].isin(out_actions)) &
-        #                                     (result_df['cum_in_rev'] == 0)).astype('int8')
-
-
         # Assuming result_df is already sorted by 'Hour'
         # Calculate cumulative count of out actions per group
         out_action_idx = result_df['Action'].isin(out_actions)
         in_action_idx = result_df['Action'].isin(in_actions)
 
-        result_df['cum_out_rev'] = np.nan
-        result_df.loc[out_action_idx, 'cum_out_rev'] = result_df.loc[out_action_idx].groupby(['AccountID'], observed=True)['RevTunnelCashFlag'].transform('cumsum')
-        result_df['cum_out_rev'] = result_df.groupby('AccountID')['cum_out_rev'].ffill().fillna(0)
+        # result_df['cum_out_rev'] = np.nan
+        # result_df.loc[out_action_idx, 'cum_out_rev'] = result_df.loc[out_action_idx].groupby(['AccountID'], observed=True)['RevTunnelCashFlag'].transform('cumsum')
+        # result_df['cum_out_rev'] = result_df.groupby('AccountID')['cum_out_rev'].ffill().fillna(0)
         
-        # Calculate reversed cumulative count of in actions per group
-        result_df['cum_in_rev'] = np.nan
-        result_df.loc[in_action_idx, 'cum_in_rev'] = result_df.loc[in_action_idx].groupby(['AccountID'], observed=True)['RevTunnelCashFlag'].transform('cumsum')
-        result_df['cum_in_rev'] = result_df.groupby('AccountID')['cum_in_rev'].ffill().fillna(0)
+        # # Calculate reversed cumulative count of in actions per group
+        # result_df['cum_in_rev'] = np.nan
+        # result_df.loc[in_action_idx, 'cum_in_rev'] = result_df.loc[in_action_idx].groupby(['AccountID'], observed=True)['RevTunnelCashFlag'].transform('cumsum')
+        # result_df['cum_in_rev'] = result_df.groupby('AccountID')['cum_in_rev'].ffill().fillna(0)
+
+        # # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
+        # result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
+        #                                     (in_action_idx)).astype('int8')
+
+        # # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
+        # # and at least one in action occured before (that is not already accounted for)
+        # result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
+        #                                     (out_action_idx) &
+        #                                     (result_df['cum_in_rev'] >= result_df['cum_out_rev'])).astype('int8')
+
+        # # (Optional) Clean up the helper columns
+        # result_df.drop(columns=['cum_out_rev', 'cum_in_rev'], inplace=True)
+
 
         # Flag for in transactions: flag if RevTunnelCashFlag is True, Action is in in_actions,
         result_df['RevTunnelCashFlagIn'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
@@ -291,11 +283,7 @@ class Features:
         # Flag for out transactions: flag if RevTunnelCashFlag is True, Action is in out_actions,
         # and at least one in action occured before (that is not already accounted for)
         result_df['RevTunnelCashFlagOut'] = ((result_df['RevTunnelCashFlag'].astype(bool)) &
-                                            (out_action_idx) &
-                                            (result_df['cum_in_rev'] >= result_df['cum_out_rev'])).astype('int8')
-
-        # (Optional) Clean up the helper columns
-        result_df.drop(columns=['cum_out_rev', 'cum_in_rev'], inplace=True)
+                                            (out_action_idx)).astype('int8')
 
         for col in ['Action', 'External_Type', 'AccountID', 'External']:
             if col in result_df.columns:
